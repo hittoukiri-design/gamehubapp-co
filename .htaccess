@@ -4,7 +4,7 @@
 Options -Indexes
 DirectoryIndex index.html index.php default.php
 
-<FilesMatch "^(users|user_state)\.json$">
+<FilesMatch "^(users|user_state|registered_uids|withdrawal_status)\.json$">
   Require all denied
 </FilesMatch>
 
@@ -21,4 +21,5 @@ DirectoryIndex index.html index.php default.php
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteRule (^|/)\. - [F,L]
+  RewriteRule ^private_bot/ - [F,L]
 </IfModule>
