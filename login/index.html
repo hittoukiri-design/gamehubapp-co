@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YaarWin Login</title>
+  <meta name="robots" content="noindex, follow">
+  <script>
+    if (new URLSearchParams(window.location.search).get("tab") === "register") {
+      window.location.replace("/register/");
+    }
+  </script>
+  <style>
+    :root {
+      --green: #02e587;
+      --soft-green: #62d59b;
+      --muted-green: #6d8b82;
+      --panel: #f1f1f1;
+      --field: #fff;
+      --text: #1d2b29;
+      --placeholder: #b8c8c4;
+      --line: #dce8e3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background: #031107;
+    }
+    a { color: inherit; text-decoration: none; }
+    button, input { font: inherit; }
+    .page {
+      min-height: 100vh;
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, rgba(0, 25, 9, .68), rgba(0, 0, 0, .2)),
+        url("/assets/img/yw-clean-hero-bg.jpg") center / cover no-repeat,
+        #031107;
+    }
+    .back {
+      position: absolute;
+      z-index: 5;
+      top: 70px;
+      left: 62px;
+      font-size: 72px;
+      line-height: .8;
+      color: #fff;
+      font-weight: 300;
+    }
+    .auth-layout {
+      width: min(1440px, 100%);
+      min-height: 100vh;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(360px, 48%) minmax(560px, 52%);
+      align-items: center;
+      gap: 24px;
+      padding: 58px 70px;
+    }
+    .intro {
+      color: #fff;
+      padding-top: 40px;
+    }
+    .brand-logo {
+      width: min(390px, 65vw);
+      margin-bottom: 100px;
+      filter: drop-shadow(0 12px 18px rgba(0, 0, 0, .45));
+    }
+    .intro h1 {
+      margin: 0 0 38px;
+      font-size: clamp(74px, 8vw, 96px);
+      line-height: .95;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+    .intro p {
+      margin: 0;
+      max-width: 560px;
+      font-size: clamp(29px, 3vw, 38px);
+      line-height: 1.45;
+      font-weight: 700;
+      color: rgba(255, 255, 255, .94);
+    }
+    .phone-frame {
+      justify-self: center;
+      width: min(590px, 100%);
+      min-height: 890px;
+      border-radius: 34px;
+      background: var(--panel);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255,255,255,.08);
+      overflow: hidden;
+    }
+    .provider-head {
+      height: 178px;
+      background: linear-gradient(135deg, var(--green), #04d57f);
+    }
+    .provider-card {
+      padding: 40px 34px 42px;
+      background: var(--panel);
+    }
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-bottom: 2px solid var(--line);
+      margin-bottom: 48px;
+    }
+    .tab {
+      display: grid;
+      place-items: center;
+      gap: 16px;
+      padding: 0 6px 16px;
+      border: 0;
+      border-bottom: 4px solid transparent;
+      background: transparent;
+      color: var(--muted-green);
+      font-size: 27px;
+      font-weight: 800;
+      text-align: center;
+    }
+    .tab.active {
+      color: var(--green);
+      border-color: var(--green);
+    }
+    .tab svg {
+      width: 34px;
+      height: 34px;
+      color: currentColor;
+    }
+    .field { margin-bottom: 40px; }
+    .field-label {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 0 0 16px;
+      color: var(--text);
+      font-size: 27px;
+      line-height: 1.2;
+    }
+    .field-label svg {
+      width: 36px;
+      height: 36px;
+      color: var(--soft-green);
+      flex: 0 0 auto;
+    }
+    .phone-row {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 12px;
+    }
+    .select,
+    .input {
+      height: 72px;
+      border: 0;
+      border-radius: 14px;
+      background: var(--field);
+      color: var(--muted-green);
+      outline: 0;
+      font-size: 25px;
+    }
+    .select {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+    .input {
+      width: 100%;
+      padding: 0 24px;
+    }
+    .input::placeholder { color: var(--placeholder); opacity: 1; }
+    .password-wrap { position: relative; }
+    .eye {
+      position: absolute;
+      right: 24px;
+      top: 50%;
+      width: 32px;
+      height: 32px;
+      transform: translateY(-50%);
+      color: #b9b9b9;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+    .eye svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .remember {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 18px 0 48px;
+      color: var(--muted-green);
+      font-size: 20px;
+    }
+    .circle {
+      position: relative;
+      width: 32px;
+      height: 32px;
+      border: 1px solid #d5d5d5;
+      border-radius: 50%;
+      background: var(--panel);
+      flex: 0 0 auto;
+    }
+    .native-check {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .native-check:checked + .circle {
+      border-color: var(--green);
+      background: var(--green);
+    }
+    .native-check:checked + .circle::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 48%;
+      width: 46%;
+      height: 26%;
+      border: solid #fff;
+      border-width: 0 0 4px 4px;
+      border-radius: 1px;
+      transform: translate(-50%, -55%) rotate(-45deg);
+    }
+    .button {
+      width: 86%;
+      min-height: 68px;
+      margin-left: auto;
+      margin-right: auto;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      border: 0;
+      cursor: pointer;
+      font-size: 29px;
+      font-weight: 800;
+      letter-spacing: .18em;
+    }
+    .button.login {
+      color: var(--muted-green);
+      background: #bfd1c8;
+    }
+    .button.outline {
+      margin-top: 34px;
+      color: var(--green);
+      border: 1.5px solid var(--soft-green);
+      background: transparent;
+    }
+    .support {
+      width: 86%;
+      margin: 56px auto 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      text-align: center;
+      color: var(--text);
+      font-size: 20px;
+    }
+    .support a {
+      display: grid;
+      justify-items: center;
+      gap: 16px;
+    }
+    .support svg {
+      width: 62px;
+      height: 62px;
+      color: var(--green);
+      filter: drop-shadow(0 2px 0 rgba(255, 255, 255, .8));
+    }
+    @media (max-width: 860px) {
+      .page {
+        overflow: auto;
+        background: var(--panel);
+      }
+      .back {
+        top: 74px;
+        left: 56px;
+        font-size: 70px;
+      }
+      .auth-layout {
+        display: block;
+        width: 100%;
+        min-height: 100vh;
+        padding: 0;
+      }
+      .intro {
+        min-height: 642px;
+        padding: 92px 56px 70px;
+        background:
+          linear-gradient(rgba(0, 39, 12, .62), rgba(0, 30, 10, .9)),
+          url("/assets/img/yw-clean-hero-bg.jpg") center / cover no-repeat,
+          #05210d;
+      }
+      .brand-logo {
+        display: block;
+        width: 420px;
+        max-width: 58vw;
+        margin: 100px auto 130px;
+      }
+      .intro h1 {
+        margin-bottom: 42px;
+        font-size: 78px;
+      }
+      .intro p {
+        max-width: 970px;
+        font-size: 43px;
+        line-height: 1.45;
+        font-weight: 400;
+        color: rgba(255, 255, 255, .82);
+      }
+      .phone-frame {
+        width: 100%;
+        min-height: auto;
+        border-radius: 0;
+        background: #fff;
+        box-shadow: none;
+      }
+      .provider-head { display: none; }
+      .provider-card {
+        padding: 88px 64px 70px;
+        background: #fff;
+      }
+      .tabs {
+        margin-bottom: 86px;
+        border-bottom-color: #d9f2e7;
+      }
+      .tab.active { color: var(--green); border-color: var(--green); }
+      .tab svg,
+      .field-label svg,
+      .support svg { color: var(--green); }
+      .select,
+      .input { background: #fff; }
+      .native-check:checked + .circle {
+        border-color: var(--green);
+        background: var(--green);
+      }
+      .tab {
+        gap: 24px;
+        padding-bottom: 26px;
+        font-size: 45px;
+      }
+      .tab svg {
+        width: 66px;
+        height: 66px;
+      }
+      .field {
+        margin-bottom: 72px;
+      }
+      .field-label {
+        gap: 28px;
+        margin-bottom: 28px;
+        font-size: 44px;
+      }
+      .field-label svg {
+        width: 70px;
+        height: 70px;
+      }
+      .phone-row {
+        grid-template-columns: 300px 1fr;
+        gap: 22px;
+      }
+      .select,
+      .input {
+        height: 132px;
+        border-radius: 22px;
+        font-size: 43px;
+      }
+      .input {
+        padding: 0 44px;
+      }
+      .eye {
+        right: 42px;
+        width: 46px;
+        height: 46px;
+      }
+      .remember {
+        gap: 22px;
+        margin: 18px 0 88px;
+        font-size: 38px;
+      }
+      .circle {
+        width: 58px;
+        height: 58px;
+      }
+      .button {
+        width: 82%;
+        min-height: 120px;
+        font-size: 48px;
+      }
+      .button.outline {
+        margin-top: 62px;
+      }
+      .support {
+        width: 86%;
+        margin-top: 96px;
+        font-size: 36px;
+      }
+      .support svg {
+        width: 96px;
+        height: 96px;
+      }
+    }
+    @media (max-width: 520px) {
+      .back {
+        top: 42px;
+        left: 24px;
+        font-size: 46px;
+      }
+      .intro {
+        min-height: 310px;
+        padding: 46px 28px 36px;
+      }
+      .brand-logo {
+        width: 230px;
+        margin: 38px auto 80px;
+      }
+      .intro h1 {
+        margin-bottom: 22px;
+        font-size: 42px;
+      }
+      .intro p {
+        font-size: 22px;
+        line-height: 1.42;
+      }
+      .provider-card {
+        padding: 54px 25px 50px;
+      }
+      .tabs {
+        margin-bottom: 46px;
+      }
+      .tab {
+        gap: 12px;
+        padding-bottom: 14px;
+        border-bottom-width: 3px;
+        font-size: 21px;
+      }
+      .tab svg {
+        width: 36px;
+        height: 36px;
+      }
+      .field {
+        margin-bottom: 36px;
+      }
+      .field-label {
+        gap: 14px;
+        margin-bottom: 14px;
+        font-size: 21px;
+      }
+      .field-label svg {
+        width: 36px;
+        height: 36px;
+      }
+      .phone-row {
+        grid-template-columns: 116px 1fr;
+        gap: 9px;
+      }
+      .select,
+      .input {
+        height: 56px;
+        border-radius: 12px;
+        font-size: 18px;
+      }
+      .input {
+        padding: 0 16px;
+      }
+      .eye {
+        right: 18px;
+        width: 24px;
+        height: 24px;
+      }
+      .remember {
+        gap: 12px;
+        margin: 4px 0 48px;
+        font-size: 16px;
+      }
+      .circle {
+        width: 28px;
+        height: 28px;
+      }
+      .native-check:checked + .circle::after {
+        border-width: 0 0 3px 3px;
+      }
+      .button {
+        width: 84%;
+        min-height: 58px;
+        font-size: 24px;
+      }
+      .button.outline {
+        margin-top: 28px;
+      }
+      .support {
+        width: 86%;
+        margin-top: 58px;
+        font-size: 18px;
+      }
+      .support svg {
+        width: 58px;
+        height: 58px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <a class="back" href="/" aria-label="Back">‹</a>
+    <section class="auth-layout" aria-labelledby="login-title">
+      <div class="intro">
+        <img class="brand-logo" src="/assets/img/yaarwin-yw-logo-small.webp?v=perf301" alt="YaarWin">
+        <h1 id="login-title">Log in</h1>
+        <p>Please log in with your phone number or email<br>If you forget your password, please contact customer service</p>
+      </div>
+      <div class="phone-frame">
+        <div class="provider-head" aria-hidden="true"></div>
+        <form class="provider-card" action="#" method="post" data-auth-form="login">
+          <div class="tabs" role="tablist" aria-label="Login method">
+            <button class="tab active" type="button" role="tab" aria-selected="true" data-login-tab="phone">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm2 2v12h6V4H9Zm1 15h4v-1h-4v1Z"/></svg>
+              <span>phone number</span>
+            </button>
+            <button class="tab" type="button" role="tab" aria-selected="false" data-login-tab="email">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5h18v14H3V5Zm9 7.2L5.8 7H5v.5l7 5.9 7-5.9V7h-.8L12 12.2Z"/></svg>
+              <span>Email Login</span>
+            </button>
+          </div>
+          <div class="field">
+            <label class="field-label" for="phone">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm2 2v12h6V4H9Zm1 15h4v-1h-4v1Z"/></svg>
+              <span data-login-label>Phone number</span>
+            </label>
+            <div class="phone-row">
+              <div class="select">+91 <span>⌄</span></div>
+              <input class="input" id="phone" type="tel" placeholder="Please enter the phone number" data-login-identity>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="password">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 9V7a5 5 0 0 0-10 0v2H5v13h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Zm3 8.5A1.5 1.5 0 1 1 12 14a1.5 1.5 0 0 1 0 3.5Z"/></svg>
+              <span>Password</span>
+            </label>
+            <div class="password-wrap">
+              <input class="input" id="password" type="password" placeholder="Password">
+              <button class="eye" type="button" aria-label="Show password" data-toggle-password="password"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m2.4 1.6 20 20-1.4 1.4-3.2-3.2A12.8 12.8 0 0 1 12 21C6.5 21 2.1 17.2.3 12a12.4 12.4 0 0 1 4-5.6L1 3l1.4-1.4Zm7.1 7.1a4 4 0 0 0 5.8 5.8L9.5 8.7ZM12 3c5.5 0 9.9 3.8 11.7 9a12.7 12.7 0 0 1-2.8 4.3l-3.1-3.1A6 6 0 0 0 10.8 6L8.4 3.6A12.7 12.7 0 0 1 12 3Z"/></svg></button>
+            </div>
+          </div>
+          <label class="remember"><input class="native-check" type="checkbox" id="remember-password"><span class="circle"></span><span>Remember password</span></label>
+          <button class="button login" type="submit">Log in</button>
+          <a class="button outline" href="/register/">Register</a>
+          <div class="support">
+            <a href="https://t.me/raviyaYaaarwinVIP" rel="nofollow">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 9V7a5 5 0 0 0-10 0v2H5v13h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Zm3 8.5A1.5 1.5 0 1 1 12 14a1.5 1.5 0 0 1 0 3.5Z"/></svg>
+              <span>Forgot password</span>
+            </a>
+            <a href="https://t.me/raviyaYaaarwinVIP" rel="nofollow">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a8 8 0 0 0-8 8v3a4 4 0 0 0 4 4h1v-7H6a6 6 0 1 1 12 0h-3v7h2a5 5 0 0 1-5 5h-2v-2h2a3 3 0 0 0 2.8-2H16a4 4 0 0 0 4-4v-4a8 8 0 0 0-8-8Z"/></svg>
+              <span>Customer Service</span>
+            </a>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+  <script>
+    document.querySelectorAll("[data-toggle-password]").forEach(function(button) {
+      button.addEventListener("click", function() {
+        var input = document.getElementById(button.getAttribute("data-toggle-password"));
+        if (!input) return;
+        input.type = input.type === "password" ? "text" : "password";
+        button.setAttribute("aria-label", input.type === "password" ? "Show password" : "Hide password");
+      });
+    });
+    document.querySelectorAll("[data-login-tab]").forEach(function(tab) {
+      tab.addEventListener("click", function() {
+        var mode = tab.getAttribute("data-login-tab");
+        document.querySelectorAll("[data-login-tab]").forEach(function(item) {
+          var active = item === tab;
+          item.classList.toggle("active", active);
+          item.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        var label = document.querySelector("[data-login-label]");
+        var input = document.querySelector("[data-login-identity]");
+        if (mode === "email") {
+          label.textContent = "Email";
+          input.type = "email";
+          input.placeholder = "Please enter your email";
+        } else {
+          label.textContent = "Phone number";
+          input.type = "tel";
+          input.placeholder = "Please enter the phone number";
+        }
+      });
+    });
+    var remember = document.getElementById("remember-password");
+    if (remember) {
+      remember.checked = localStorage.getItem("yaarwinRememberLogin") === "1";
+      remember.addEventListener("change", function() {
+        localStorage.setItem("yaarwinRememberLogin", remember.checked ? "1" : "0");
+      });
+    }
+    document.querySelector("[data-auth-form='login']").addEventListener("submit", function(event) {
+      event.preventDefault();
+    });
+  </script>
+</body>
+</html>

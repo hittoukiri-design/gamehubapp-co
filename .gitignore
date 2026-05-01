@@ -1,0 +1,25 @@
+# Runtime and bot files. Keep these out of the public website repository.
+bot.php
+users.json
+user_state.json
+yw_users_data.php
+yw_user_state_data.php
+
+# Environment, database, and server-only artifacts.
+.env
+.env.*
+*.log
+*.sql
+*.sqlite
+*.sqlite3
+*.bak
+*.backup
+*.zip
+*.tar
+*.tar.gz
+
+# OS/editor noise.
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

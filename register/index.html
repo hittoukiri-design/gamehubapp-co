@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YaarWin Register</title>
+  <meta name="robots" content="noindex, follow">
+  <style>
+    :root {
+      --green: #02e587;
+      --soft-green: #16d889;
+      --panel: #f1f1f1;
+      --field: #fff;
+      --text: #1d2b29;
+      --muted: #6d8b82;
+      --placeholder: #b8c8c4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background: #031107;
+    }
+    a { color: inherit; text-decoration: none; }
+    button, input { font: inherit; }
+    .page {
+      min-height: 100vh;
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, rgba(0, 25, 9, .68), rgba(0, 0, 0, .2)),
+        url("/assets/img/yw-clean-hero-bg.jpg") center / cover no-repeat,
+        #031107;
+    }
+    .back {
+      position: absolute;
+      z-index: 5;
+      top: 70px;
+      left: 62px;
+      font-size: 72px;
+      line-height: .8;
+      color: #fff;
+      font-weight: 300;
+    }
+    .auth-layout {
+      width: min(1440px, 100%);
+      min-height: 100vh;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(360px, 48%) minmax(560px, 52%);
+      align-items: center;
+      gap: 24px;
+      padding: 58px 70px;
+    }
+    .intro {
+      color: #fff;
+      padding-top: 40px;
+    }
+    .brand-logo {
+      width: min(390px, 65vw);
+      margin-bottom: 100px;
+      filter: drop-shadow(0 12px 18px rgba(0, 0, 0, .45));
+    }
+    .intro h1 {
+      margin: 0 0 38px;
+      font-size: clamp(74px, 8vw, 96px);
+      line-height: .95;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+    .intro p {
+      margin: 0;
+      max-width: 560px;
+      font-size: clamp(29px, 3vw, 38px);
+      line-height: 1.45;
+      font-weight: 700;
+      color: rgba(255, 255, 255, .94);
+    }
+    .phone-frame {
+      justify-self: center;
+      width: min(590px, 100%);
+      min-height: 890px;
+      border-radius: 34px;
+      background: var(--panel);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255,255,255,.08);
+      overflow: hidden;
+    }
+    .provider-head {
+      position: relative;
+      height: 178px;
+      background: linear-gradient(135deg, var(--green), #04d57f);
+    }
+    .provider-card {
+      padding: 20px 26px 22px;
+      background: var(--panel);
+    }
+    .card-title {
+      display: grid;
+      justify-items: center;
+      gap: 12px;
+      padding: 0 0 19px;
+      margin-bottom: 34px;
+      color: var(--green);
+      border-bottom: 2px solid var(--green);
+      font-size: 25px;
+      font-weight: 800;
+    }
+    .card-title svg,
+    .field-label svg {
+      width: 32px;
+      height: 32px;
+      color: var(--soft-green);
+      flex: 0 0 auto;
+    }
+    .field {
+      margin-bottom: 20px;
+    }
+    .field-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 10px;
+      color: var(--text);
+      font-size: 24px;
+      line-height: 1.2;
+    }
+    .phone-row {
+      display: grid;
+      grid-template-columns: 122px 1fr;
+      gap: 10px;
+    }
+    .select,
+    .input {
+      height: 62px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--field);
+      color: var(--muted);
+      outline: 0;
+      font-size: 22px;
+    }
+    .select {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    .input {
+      width: 100%;
+      padding: 0 22px;
+    }
+    .input::placeholder { color: var(--placeholder); opacity: 1; }
+    .password-wrap { position: relative; }
+    .eye {
+      position: absolute;
+      right: 22px;
+      top: 50%;
+      width: 28px;
+      height: 28px;
+      transform: translateY(-50%);
+      color: #b9b9b9;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+    .eye svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .agreement {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 36px 0 36px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+    .agreement .red { color: #f00000; }
+    .circle {
+      position: relative;
+      width: 28px;
+      height: 28px;
+      border: 1px solid #d1d8d6;
+      border-radius: 50%;
+      background: var(--panel);
+      flex: 0 0 auto;
+    }
+    .native-check {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .native-check:checked + .circle {
+      border-color: var(--green);
+      background: var(--green);
+    }
+    .native-check:checked + .circle::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 48%;
+      width: 46%;
+      height: 26%;
+      border: solid #fff;
+      border-width: 0 0 4px 4px;
+      border-radius: 1px;
+      transform: translate(-50%, -55%) rotate(-45deg);
+    }
+    .button {
+      width: 86%;
+      min-height: 58px;
+      margin-left: auto;
+      margin-right: auto;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      border: 0;
+      cursor: pointer;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: .18em;
+    }
+    .button.primary {
+      color: #fff;
+      background: var(--soft-green);
+    }
+    .button.outline {
+      margin-top: 30px;
+      color: var(--muted);
+      border: 1.5px solid var(--soft-green);
+      background: transparent;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .button.outline strong {
+      color: var(--green);
+      letter-spacing: .14em;
+    }
+    @media (max-width: 860px) {
+      .page {
+        overflow: auto;
+        background: var(--panel);
+      }
+      .back {
+        top: 74px;
+        left: 56px;
+        font-size: 70px;
+      }
+      .auth-layout {
+        display: block;
+        width: 100%;
+        min-height: 100vh;
+        padding: 0;
+      }
+      .intro {
+        min-height: 560px;
+        padding: 92px 56px 70px;
+        background:
+          linear-gradient(rgba(0, 39, 12, .62), rgba(0, 30, 10, .9)),
+          url("/assets/img/yw-clean-hero-bg.jpg") center / cover no-repeat,
+          #05210d;
+      }
+      .brand-logo {
+        display: block;
+        width: 420px;
+        max-width: 58vw;
+        margin: 100px auto 118px;
+      }
+      .intro h1 {
+        margin-bottom: 42px;
+        font-size: 78px;
+      }
+      .intro p {
+        max-width: 970px;
+        font-size: 43px;
+        line-height: 1.45;
+        font-weight: 400;
+      }
+      .phone-frame {
+        width: 100%;
+        min-height: auto;
+        border-radius: 0;
+        background: #fff;
+        box-shadow: none;
+      }
+      .provider-head { display: none; }
+      .provider-card {
+        padding: 18px 40px 46px;
+        background: #fff;
+      }
+      .card-title {
+        gap: 14px;
+        margin-bottom: 54px;
+        padding-bottom: 30px;
+        color: var(--green);
+        border-bottom-color: var(--green);
+        font-size: 36px;
+      }
+      .card-title svg,
+      .field-label svg { color: var(--green); }
+      .select,
+      .input { background: #fff; }
+      .native-check:checked + .circle {
+        border-color: var(--green);
+        background: var(--green);
+      }
+      .card-title svg,
+      .field-label svg {
+        width: 48px;
+        height: 48px;
+      }
+      .field {
+        margin-bottom: 38px;
+      }
+      .field-label {
+        gap: 18px;
+        margin-bottom: 18px;
+        font-size: 34px;
+      }
+      .phone-row {
+        grid-template-columns: 178px 1fr;
+        gap: 12px;
+      }
+      .select,
+      .input {
+        height: 84px;
+        border-radius: 16px;
+        font-size: 28px;
+      }
+      .input {
+        padding: 0 28px;
+      }
+      .eye {
+        right: 28px;
+        width: 36px;
+        height: 36px;
+      }
+      .agreement {
+        gap: 12px;
+        margin: 52px 0 52px;
+        font-size: 23px;
+      }
+      .circle {
+        width: 36px;
+        height: 36px;
+      }
+      .button {
+        width: 86%;
+        min-height: 76px;
+        font-size: 34px;
+      }
+      .button.outline {
+        margin-top: 38px;
+        font-size: 21px;
+      }
+    }
+    @media (max-width: 520px) {
+      .back {
+        top: 42px;
+        left: 24px;
+        font-size: 46px;
+      }
+      .intro {
+        min-height: 300px;
+        padding: 46px 28px 34px;
+      }
+      .brand-logo {
+        width: 230px;
+        margin: 38px auto 78px;
+      }
+      .intro h1 {
+        margin-bottom: 22px;
+        font-size: 42px;
+      }
+      .intro p {
+        font-size: 22px;
+        line-height: 1.42;
+      }
+      .provider-card {
+        padding: 10px 16px 28px;
+      }
+      .card-title {
+        gap: 8px;
+        margin-bottom: 28px;
+        padding-bottom: 15px;
+        font-size: 16px;
+        border-bottom-width: 1px;
+      }
+      .card-title svg,
+      .field-label svg {
+        width: 26px;
+        height: 26px;
+      }
+      .field {
+        margin-bottom: 18px;
+      }
+      .field-label {
+        gap: 10px;
+        margin-bottom: 9px;
+        font-size: 16px;
+      }
+      .phone-row {
+        grid-template-columns: 100px 1fr;
+        gap: 8px;
+      }
+      .select,
+      .input {
+        height: 46px;
+        border-radius: 10px;
+        font-size: 16px;
+      }
+      .input {
+        padding: 0 14px;
+      }
+      .eye {
+        right: 14px;
+        width: 22px;
+        height: 22px;
+      }
+      .agreement {
+        gap: 8px;
+        margin: 34px 0 34px;
+        font-size: 13px;
+      }
+      .circle {
+        width: 20px;
+        height: 20px;
+      }
+      .native-check:checked + .circle::after {
+        border-width: 0 0 3px 3px;
+      }
+      .button {
+        width: 84%;
+        min-height: 42px;
+        font-size: 18px;
+      }
+      .button.outline {
+        margin-top: 22px;
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <a class="back" href="/" aria-label="Back">‹</a>
+    <section class="auth-layout" aria-labelledby="register-title">
+      <div class="intro">
+        <img class="brand-logo" src="/assets/img/yaarwin-yw-logo-small.webp?v=perf301" alt="YaarWin">
+        <h1 id="register-title">Register</h1>
+        <p>Please register with<br>your phone number</p>
+      </div>
+      <div class="phone-frame">
+        <div class="provider-head" aria-hidden="true"></div>
+        <form class="provider-card" action="#" method="post" data-auth-form="register">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm2 2v12h6V4H9Zm1 15h4v-1h-4v1Z"/></svg>
+            <span>Register your phone</span>
+          </div>
+          <div class="field">
+            <label class="field-label" for="phone">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm2 2v12h6V4H9Zm1 15h4v-1h-4v1Z"/></svg>
+              <span>Phone number</span>
+            </label>
+            <div class="phone-row">
+              <div class="select">+91 <span>⌄</span></div>
+              <input class="input" id="phone" type="tel" placeholder="Please enter the phone number">
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="password">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 9V7a5 5 0 0 0-10 0v2H5v13h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Zm3 8.5A1.5 1.5 0 1 1 12 14a1.5 1.5 0 0 1 0 3.5Z"/></svg>
+              <span>Set password</span>
+            </label>
+            <div class="password-wrap">
+              <input class="input" id="password" type="password" placeholder="Set password">
+              <button class="eye" type="button" aria-label="Show password" data-toggle-password="password"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m2.4 1.6 20 20-1.4 1.4-3.2-3.2A12.8 12.8 0 0 1 12 21C6.5 21 2.1 17.2.3 12a12.4 12.4 0 0 1 4-5.6L1 3l1.4-1.4Zm7.1 7.1a4 4 0 0 0 5.8 5.8L9.5 8.7ZM12 3c5.5 0 9.9 3.8 11.7 9a12.7 12.7 0 0 1-2.8 4.3l-3.1-3.1A6 6 0 0 0 10.8 6L8.4 3.6A12.7 12.7 0 0 1 12 3Z"/></svg></button>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="confirm">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 9V7a5 5 0 0 0-10 0v2H5v13h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Zm3 8.5A1.5 1.5 0 1 1 12 14a1.5 1.5 0 0 1 0 3.5Z"/></svg>
+              <span>Confirm password</span>
+            </label>
+            <div class="password-wrap">
+              <input class="input" id="confirm" type="password" placeholder="Confirm password">
+              <button class="eye" type="button" aria-label="Show password" data-toggle-password="confirm"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m2.4 1.6 20 20-1.4 1.4-3.2-3.2A12.8 12.8 0 0 1 12 21C6.5 21 2.1 17.2.3 12a12.4 12.4 0 0 1 4-5.6L1 3l1.4-1.4Zm7.1 7.1a4 4 0 0 0 5.8 5.8L9.5 8.7ZM12 3c5.5 0 9.9 3.8 11.7 9a12.7 12.7 0 0 1-2.8 4.3l-3.1-3.1A6 6 0 0 0 10.8 6L8.4 3.6A12.7 12.7 0 0 1 12 3Z"/></svg></button>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="invite">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 3h12v18H6V3Zm3 4h6V5H9v2Zm-1 4h8V9H8v2Zm0 4h8v-2H8v2Zm0 4h5v-2H8v2Z"/></svg>
+              <span>Invite code</span>
+            </label>
+            <input class="input" id="invite" type="text" placeholder="Please enter the invitation code">
+          </div>
+          <label class="agreement">
+            <input class="native-check" type="checkbox" id="privacy-agreement">
+            <span class="circle"></span>
+            <span>I have read and agree</span>
+            <a class="red" href="/privacy/">[Privacy Agreement]</a>
+          </label>
+          <button class="button primary" type="submit">Register</button>
+          <a class="button outline" href="/login/">I have an account&nbsp; <strong>Login</strong></a>
+        </form>
+      </div>
+    </section>
+  </main>
+  <script>
+    document.querySelectorAll("[data-toggle-password]").forEach(function(button) {
+      button.addEventListener("click", function() {
+        var input = document.getElementById(button.getAttribute("data-toggle-password"));
+        if (!input) return;
+        input.type = input.type === "password" ? "text" : "password";
+        button.setAttribute("aria-label", input.type === "password" ? "Show password" : "Hide password");
+      });
+    });
+    document.querySelector("[data-auth-form='register']").addEventListener("submit", function(event) {
+      event.preventDefault();
+    });
+  </script>
+</body>
+</html>

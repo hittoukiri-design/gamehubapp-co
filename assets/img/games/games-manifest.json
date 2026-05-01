@@ -1,0 +1,47 @@
+{
+  "slots": [
+    {
+      "name": "Gates of Olympus",
+      "file": "gates-of-olympus.webp"
+    },
+    {
+      "name": "Big Bass Bonanza",
+      "file": "big-bass-bonanza.webp"
+    },
+    {
+      "name": "Fortune Ox",
+      "file": "fortune-ox.webp"
+    },
+    {
+      "name": "Fortune Tiger",
+      "file": "fortune-tiger.webp"
+    },
+    {
+      "name": "Sugar Rush",
+      "file": "sugar-rush.webp"
+    },
+    {
+      "name": "Starlight Princess",
+      "file": "starlight-princess.webp"
+    },
+    {
+      "name": "Lucky Neko",
+      "file": "lucky-neko.webp"
+    },
+    {
+      "name": "Mahjong Ways",
+      "file": "mahjong-ways.webp"
+    },
+    {
+      "name": "Sweet Bonanza",
+      "file": "sweet-bonanza.webp"
+    }
+  ],
+  "crash": [
+    {
+      "name": "Aviator",
+      "file": "aviator.webp"
+    }
+  ],
+  "casino": []
+}
