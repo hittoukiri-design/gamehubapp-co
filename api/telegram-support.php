@@ -69,7 +69,7 @@ $DAILY_WITHDRAW_CHECK_LIMIT = 5;
 $DAILY_UID_FAILURE_LIMIT = 6;
 $HOURLY_MESSAGE_LIMIT = 10;
 $UID_REVIEW_CHAT_LIMIT = 3;
-$HUMAN_AGENT_URL = "https://t.me/official_yaarwinapp";
+$HUMAN_AGENT_URL = "https://t.me/Official_YaarWinapp";
 
 function readBotDataFile($file) {
     if (!file_exists($file)) {
@@ -623,33 +623,64 @@ function getDisplayName($username, $first_name) {
 }
 
 function showWelcome($chat_id, $username, $first_name) {
-    global $UID_SAMPLE_PHOTO;
-
     $displayName = getDisplayName($username, $first_name);
 
     $text = "👋 Hello, " . $displayName . " welcome to <b>YaarWin</b>! 🎉\n\n";
-    $text .= "🆔 Please send me your <b>UID</b>\n";
-    $text .= "⚡️ So we can process your request faster!\n\n";
+    $text .= "Please choose one option below so we can guide you faster.";
+
+    sendMessage($chat_id, $text, [
+        "inline_keyboard" => [
+            [
+                [
+                    "text" => "Member",
+                    "callback_data" => "member_selected"
+                ],
+                [
+                    "text" => "Non-member",
+                    "callback_data" => "non_member_selected"
+                ]
+            ]
+        ]
+    ]);
+}
+
+function showMemberUidPrompt($chat_id, $username, $first_name) {
+    global $UID_SAMPLE_PHOTO;
+
+    setUserState($chat_id, "waiting_uid", [
+        "username" => $username,
+        "first_name" => $first_name,
+        "uid_failed_attempts" => 0
+    ]);
+
+    $text = "🆔 Please send me your <b>UID</b>, so we can process your request faster!\n\n";
     $text .= "<i>(See the sample photos down below to find your UID number)</i>";
 
     sendMessage($chat_id, $text);
 
-    $keyboard = [
-        "inline_keyboard" => [
-            [
-                [
-                    "text" => "🆔 Enter your UID",
-                    "callback_data" => "enter_uid"
-                ]
-            ]
-        ]
-    ];
-
     sendPhoto(
         $chat_id,
         $UID_SAMPLE_PHOTO,
-        "📌 <b>Sample photo:</b> You can find your UID number in the Account page.",
-        $keyboard
+        "📌 <b>Sample photo:</b> You can find your UID number in the Account page."
+    );
+}
+
+function showNonMemberTeacherPrompt($chat_id) {
+    global $HUMAN_AGENT_URL;
+
+    sendMessage(
+        $chat_id,
+        "Are you interested in becoming a YaarWin agent?",
+        [
+            "inline_keyboard" => [
+                [
+                    [
+                        "text" => "Connect with our teacher",
+                        "url" => $HUMAN_AGENT_URL
+                    ]
+                ]
+            ]
+        ]
     );
 }
 
@@ -1109,7 +1140,7 @@ if (isset($update["message"])) {
     // Default kalau user kirim pesan biasa sebelum input UID
     sendMessage(
         $chat_id,
-        "Please click <b>Enter your UID</b> first, then send your UID number.",
+        "Please choose <b>Member</b> first, then send your UID number.",
         [
             "inline_keyboard" => [
                 [
@@ -1166,17 +1197,19 @@ if (isset($update["callback_query"])) {
         exit;
     }
 
+    if ($data === "member_selected") {
+        showMemberUidPrompt($chat_id, $username, $first_name);
+        exit;
+    }
+
+    if ($data === "non_member_selected") {
+        clearUserState($chat_id);
+        showNonMemberTeacherPrompt($chat_id);
+        exit;
+    }
+
     if ($data === "enter_uid") {
-        setUserState($chat_id, "waiting_uid", [
-            "username" => $username,
-            "first_name" => $first_name
-        ]);
-
-        sendMessage(
-            $chat_id,
-            "🆔 Please type your <b>UID number</b> now.\n\nExample:\n<b>12297445</b>"
-        );
-
+        showMemberUidPrompt($chat_id, $username, $first_name);
         exit;
     }
 
@@ -1187,13 +1220,17 @@ if (isset($update["callback_query"])) {
     if ($uid === "") {
         sendMessage(
             $chat_id,
-            "Please enter your UID first.",
+            "Please choose <b>Member</b> first, then send your UID number.",
             [
                 "inline_keyboard" => [
                     [
                         [
-                            "text" => "🆔 Enter your UID",
-                            "callback_data" => "enter_uid"
+                            "text" => "Member",
+                            "callback_data" => "member_selected"
+                        ],
+                        [
+                            "text" => "Non-member",
+                            "callback_data" => "non_member_selected"
                         ]
                     ]
                 ]
