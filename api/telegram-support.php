@@ -48,7 +48,7 @@ if ($WEBHOOK_SECRET !== "") {
 
 // Optional: isi chat ID admin/group kalau nanti mau notifikasi masuk ke admin.
 // Kalau belum perlu, biarkan kosong.
-$ADMIN_CHAT_ID = "";
+$ADMIN_CHAT_ID = "8655066559";
 
 // URL sample UID kamu
 $UID_SAMPLE_PHOTO = "https://yaarwinapp.co/assets/uid-sample.jpg";
