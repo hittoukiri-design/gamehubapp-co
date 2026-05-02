@@ -963,11 +963,20 @@ if (isset($update["callback_query"])) {
             "first_name" => $first_name
         ]);
 
-        showHumanAgentMenu(
+        sendMessage(
             $chat_id,
             "💼 <b>Salary support</b>\n\n" .
-            "Salary is related to promoter/member-get-member rewards, so this request must be handled by our human teacher.\n\n" .
-            "Please chat with our human teacher for checking and follow-up."
+            "We will connect you with a human teacher. Please wait a moment.",
+            [
+                "inline_keyboard" => [
+                    [
+                        [
+                            "text" => "Connect me",
+                            "url" => $HUMAN_AGENT_URL
+                        ]
+                    ]
+                ]
+            ]
         );
 
         notifyAdmin(
