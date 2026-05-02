@@ -1100,7 +1100,7 @@ if (isset($update["message"])) {
         exit;
     }
 
-    if ($text === "/myid") {
+    if (preg_match('/^\/(?:myid|id)(?:@\w+)?$/i', $text)) {
         $displayName = getDisplayName($username, $first_name);
         sendMessage(
             $chat_id,
