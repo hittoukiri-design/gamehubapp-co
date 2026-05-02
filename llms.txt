@@ -1,0 +1,46 @@
+# YaarWin
+
+> YaarWin is a mobile-first online gaming and betting guide for adult users in India. The site covers account access, game category guides, payment readiness, withdrawal preparation, bonus checks, support flow, and responsible play reminders.
+
+YaarWin content is informational and intended for adults only. Real-money gaming involves risk. Users should check local rules, platform terms, payment details, and personal limits before playing. No page should be read as a guarantee of income, fixed results, or risk-free winnings.
+
+## Core Pages
+
+- [Home](https://yaarwinapp.co/): Main YaarWin overview for online betting in India, game categories, UPI-friendly access, and fast withdrawal guidance.
+- [YaarWin Game Login](https://yaarwinapp.co/yaarwin-game-login/): Account access guide covering login checks, mobile sign-in habits, privacy reminders, and safer first-session flow.
+- [YaarWin Online Betting](https://yaarwinapp.co/yaarwin-online-betting/): Online betting guide covering casino games, cricket betting, Teen Patti, Aviator, color prediction, bonuses, and responsible play.
+- [YaarWin Fast Withdrawal](https://yaarwinapp.co/yaarwin-fast-withdrawal/): Withdrawal readiness guide covering UPI habits, proof preparation, payment checks, and common payout delay reasons.
+- [Blog](https://yaarwinapp.co/blog/): Article hub for YaarWin guides, betting education, safer play, payments, bonuses, and game-specific topics.
+
+## Helpful Launch Guides
+
+- [YaarWin First Session Checklist India](https://yaarwinapp.co/blog/yaarwin-first-session-checklist-india/): Practical checklist before login, adding funds, claiming bonuses, or playing a first real-money session.
+- [YaarWin Withdrawal Proof and Support Guide](https://yaarwinapp.co/blog/yaarwin-withdrawal-proof-support-guide/): Guide for preparing screenshots, order details, UID information, and support-ready messages.
+- [Is YaarWin Real or Fake?](https://yaarwinapp.co/blog/is-yaarwin-real-or-fake/): Trust and safety guide for checking official access, payment records, and account protection.
+- [Is YaarWin Scam or Legit?](https://yaarwinapp.co/blog/is-yaarwin-scam-or-legit-platform/): Practical review checklist for platform access, withdrawal expectations, proof, and user responsibility.
+- [YaarWin Safety Guide](https://yaarwinapp.co/blog/yaarwin-safety-guide-real-or-scam-explained/): Safety guide covering login privacy, payment records, support preparation, and responsible play habits.
+
+## Topic Areas
+
+- Account access and login guidance
+- Online betting and casino game education
+- Cricket betting and live betting context
+- Aviator, Teen Patti, slots, lottery, and color prediction guides
+- UPI payment readiness and withdrawal preparation
+- Bonus terms and new-user checklist guidance
+- Responsible gaming and account safety reminders
+
+## Important Notes
+
+- YaarWin is intended for users aged 18 and above.
+- Users should follow local laws and platform terms.
+- Betting and real-money games can lead to financial loss.
+- The site does not provide guaranteed winning systems.
+- Users should keep OTP, passwords, wallet details, and account information private.
+- Support cases are easier to review when users provide clear proof, order details, UID information, and a concise description of the issue.
+
+## Machine-Readable Discovery
+
+- Sitemap: https://yaarwinapp.co/sitemap.xml
+- Robots: https://yaarwinapp.co/robots.txt
+- Canonical host: https://yaarwinapp.co/
