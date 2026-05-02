@@ -725,22 +725,32 @@ function showMemberUidPrompt($chat_id, $username, $first_name) {
 }
 
 function showNonMemberTeacherPrompt($chat_id) {
-    global $HUMAN_AGENT_URL;
-
     sendMessage(
         $chat_id,
-        "Are you interested in becoming a YaarWin agent?",
+        "Are you interested in becoming a YaarWin agent and building a successful future with us?",
         [
             "inline_keyboard" => [
                 [
                     [
-                        "text" => "Connect with our teacher",
-                        "url" => $HUMAN_AGENT_URL
+                        "text" => "Yes",
+                        "callback_data" => "potential_agent_yes"
                     ]
                 ]
             ]
         ]
     );
+}
+
+function handlePotentialAgentInterest($chat_id, $username, $first_name) {
+    $displayName = getDisplayName($username, $first_name);
+    $adminName = $username !== "" ? "@" . $username : "Telegram ID " . $chat_id;
+
+    sendMessage(
+        $chat_id,
+        "Thank you, " . $displayName . ". We have received your Telegram ID. Our teacher will contact you with more information."
+    );
+
+    notifyAdmin($adminName . " (potential agent)");
 }
 
 function showProblemMenu($chat_id, $uid, $withQuit = false) {
@@ -1264,6 +1274,12 @@ if (isset($update["callback_query"])) {
     if ($data === "non_member_selected") {
         clearUserState($chat_id);
         showNonMemberTeacherPrompt($chat_id);
+        exit;
+    }
+
+    if ($data === "potential_agent_yes") {
+        clearUserState($chat_id);
+        handlePotentialAgentInterest($chat_id, $username, $first_name);
         exit;
     }
 
