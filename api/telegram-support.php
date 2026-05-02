@@ -25,6 +25,18 @@ if ($BOT_TOKEN === "") {
     exit;
 }
 
+$requestMethod = $_SERVER["REQUEST_METHOD"] ?? "GET";
+if ($requestMethod === "GET" || $requestMethod === "HEAD") {
+    header("Content-Type: application/json; charset=utf-8");
+    header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+    echo json_encode([
+        "ok" => true,
+        "service" => "telegram-support",
+        "status" => "ready"
+    ]);
+    exit;
+}
+
 // Secret webhook validation. Setelah upload versi ini, webhook perlu diset ulang dengan secret_token yang sama.
 if ($WEBHOOK_SECRET !== "") {
     $incomingSecret = $_SERVER["HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN"] ?? "";
