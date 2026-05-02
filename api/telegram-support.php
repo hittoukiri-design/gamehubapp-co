@@ -1100,6 +1100,15 @@ if (isset($update["message"])) {
         exit;
     }
 
+    if ($text === "/myid") {
+        $displayName = getDisplayName($username, $first_name);
+        sendMessage(
+            $chat_id,
+            "Hello, " . $displayName . ".\n\nYour Telegram chat ID is:\n<code>" . $chat_id . "</code>"
+        );
+        exit;
+    }
+
     $userState = getUserState($chat_id);
 
     if ($userState["state"] === "waiting_withdraw_evidence") {
