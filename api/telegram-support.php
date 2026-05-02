@@ -956,16 +956,18 @@ if (isset($update["callback_query"])) {
 
     // Main menu: Salary
     if ($data === "problem_salary") {
-        setUserState($chat_id, "problem_selected", [
+        setUserState($chat_id, "uid_received", [
             "uid" => $uid,
             "problem" => "Salary",
             "username" => $username,
             "first_name" => $first_name
         ]);
 
-        sendMessage(
+        showHumanAgentMenu(
             $chat_id,
-            "✅ You selected <b>Salary</b>.\n\nPlease send your salary screenshot and describe your problem."
+            "💼 <b>Salary support</b>\n\n" .
+            "Salary is related to promoter/member-get-member rewards, so this request must be handled by our human teacher.\n\n" .
+            "Please chat with our human teacher for checking and follow-up."
         );
 
         notifyAdmin(
@@ -973,7 +975,8 @@ if (isset($update["callback_query"])) {
             "User: @" . ($username ?: "no_username") . "\n" .
             "Name: " . $first_name . "\n" .
             "UID: " . $uid . "\n" .
-            "Problem: Salary"
+            "Problem: Salary\n" .
+            "Action: Directed to human teacher"
         );
 
         exit;
