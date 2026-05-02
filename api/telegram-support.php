@@ -472,6 +472,27 @@ function showRechargeMenu($chat_id) {
     sendMessage($chat_id, $text, $keyboard);
 }
 
+function showRechargeHumanTeacherPrompt($chat_id) {
+    global $HUMAN_AGENT_URL;
+
+    sendMessage(
+        $chat_id,
+        "💳 <b>Recharge support</b>\n\n" .
+        "Please prepare a screenshot of your transfer receipt.\n\n" .
+        "We will connect you with a human teacher. Please wait a moment.",
+        [
+            "inline_keyboard" => [
+                [
+                    [
+                        "text" => "Connect me",
+                        "url" => $HUMAN_AGENT_URL
+                    ]
+                ]
+            ]
+        ]
+    );
+}
+
 function showHumanAgentMessage($chat_id, $username, $first_name) {
     global $HUMAN_AGENT_URL;
 
@@ -993,24 +1014,22 @@ if (isset($update["callback_query"])) {
 
     // Recharge submenu: Pending
     if ($data === "recharge_pending") {
-        setUserState($chat_id, "recharge_pending_selected", [
+        setUserState($chat_id, "uid_received", [
             "uid" => $uid,
             "problem" => "Recharge Pending",
             "username" => $username,
             "first_name" => $first_name
         ]);
 
-        sendMessage(
-            $chat_id,
-            "⏳ You selected <b>Recharge Pending</b>.\n\nPlease send your recharge screenshot and describe your problem."
-        );
+        showRechargeHumanTeacherPrompt($chat_id);
 
         notifyAdmin(
             "📩 New YaarWin Request\n\n" .
             "User: @" . ($username ?: "no_username") . "\n" .
             "Name: " . $first_name . "\n" .
             "UID: " . $uid . "\n" .
-            "Problem: Recharge Pending"
+            "Problem: Recharge Pending\n" .
+            "Action: Directed to human teacher"
         );
 
         exit;
@@ -1018,24 +1037,22 @@ if (isset($update["callback_query"])) {
 
     // Recharge submenu: Failed
     if ($data === "recharge_failed") {
-        setUserState($chat_id, "recharge_failed_selected", [
+        setUserState($chat_id, "uid_received", [
             "uid" => $uid,
             "problem" => "Recharge Failed",
             "username" => $username,
             "first_name" => $first_name
         ]);
 
-        sendMessage(
-            $chat_id,
-            "❌ You selected <b>Recharge Failed</b>.\n\nPlease send your recharge screenshot and describe your problem."
-        );
+        showRechargeHumanTeacherPrompt($chat_id);
 
         notifyAdmin(
             "📩 New YaarWin Request\n\n" .
             "User: @" . ($username ?: "no_username") . "\n" .
             "Name: " . $first_name . "\n" .
             "UID: " . $uid . "\n" .
-            "Problem: Recharge Failed"
+            "Problem: Recharge Failed\n" .
+            "Action: Directed to human teacher"
         );
 
         exit;
