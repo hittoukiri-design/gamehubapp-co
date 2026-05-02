@@ -60,8 +60,15 @@ $STATE_FILE = $PRIVATE_BOT_DIR . "/user_state.json";
 $USERS_FILE = $PRIVATE_BOT_DIR . "/users.json";
 $WITHDRAWAL_STATUS_FILE = $PRIVATE_BOT_DIR . "/withdrawal_status.json";
 $REGISTERED_UIDS_FILE = $PRIVATE_BOT_DIR . "/registered_uids.json";
+$ABUSE_FILE = $PRIVATE_BOT_DIR . "/abuse_control.json";
 $LOCKOUT_SECONDS = 300;
 $MAX_FAILED_ATTEMPTS = 3;
+$PROGRESSIVE_COOLDOWN_SECONDS = [300, 900, 3600, 86400];
+$HARD_MUTE_AFTER_COOLDOWNS = 5;
+$DAILY_WITHDRAW_CHECK_LIMIT = 5;
+$DAILY_UID_FAILURE_LIMIT = 6;
+$HOURLY_MESSAGE_LIMIT = 10;
+$UID_REVIEW_CHAT_LIMIT = 3;
 $HUMAN_AGENT_URL = "https://t.me/official_yaarwinapp";
 
 function readBotDataFile($file) {
@@ -363,6 +370,250 @@ function clearUserState($chat_id) {
     }
 }
 
+function loadAbuseData() {
+    global $ABUSE_FILE;
+
+    if (!file_exists($ABUSE_FILE)) {
+        writeBotDataFile($ABUSE_FILE, [
+            "users" => [],
+            "uids" => []
+        ]);
+    }
+
+    $data = readBotDataFile($ABUSE_FILE);
+
+    if (!isset($data["users"]) || !is_array($data["users"])) {
+        $data["users"] = [];
+    }
+
+    if (!isset($data["uids"]) || !is_array($data["uids"])) {
+        $data["uids"] = [];
+    }
+
+    return $data;
+}
+
+function saveAbuseData($data) {
+    global $ABUSE_FILE;
+
+    writeBotDataFile($ABUSE_FILE, $data);
+}
+
+function getDefaultAbuseUserRecord() {
+    return [
+        "cooldown_level" => 0,
+        "cooldown_until" => 0,
+        "hard_muted" => false,
+        "daily" => [
+            "date" => date("Y-m-d"),
+            "withdraw_checks" => 0,
+            "uid_failures" => 0
+        ],
+        "hourly" => [
+            "hour" => date("Y-m-d H"),
+            "messages" => 0
+        ],
+        "last_reason" => "",
+        "updated_at" => date("Y-m-d H:i:s")
+    ];
+}
+
+function getAbuseUserRecord($chat_id, &$data) {
+    $key = (string)$chat_id;
+
+    if (!isset($data["users"][$key]) || !is_array($data["users"][$key])) {
+        $data["users"][$key] = getDefaultAbuseUserRecord();
+    }
+
+    $record = array_merge(getDefaultAbuseUserRecord(), $data["users"][$key]);
+
+    if (($record["daily"]["date"] ?? "") !== date("Y-m-d")) {
+        $record["daily"] = [
+            "date" => date("Y-m-d"),
+            "withdraw_checks" => 0,
+            "uid_failures" => 0
+        ];
+    }
+
+    if (($record["hourly"]["hour"] ?? "") !== date("Y-m-d H")) {
+        $record["hourly"] = [
+            "hour" => date("Y-m-d H"),
+            "messages" => 0
+        ];
+    }
+
+    $data["users"][$key] = $record;
+    return $record;
+}
+
+function isHardMuted($chat_id) {
+    $data = loadAbuseData();
+    $record = getAbuseUserRecord($chat_id, $data);
+
+    saveAbuseData($data);
+    return !empty($record["hard_muted"]);
+}
+
+function showRestrictedAccessMessage($chat_id) {
+    sendMessage(
+        $chat_id,
+        "Your access is temporarily restricted. Please contact support."
+    );
+}
+
+function notifyPossibleSpam($chat_id, $username, $first_name, $uid, $reason, $count) {
+    notifyAdmin(
+        "⚠️ Possible spam detected\n\n" .
+        "User: @" . ($username ?: "no_username") . "\n" .
+        "Name: " . $first_name . "\n" .
+        "Chat ID: " . $chat_id . "\n" .
+        "UID: " . ($uid !== "" ? $uid : "Not provided") . "\n" .
+        "Reason: " . $reason . "\n" .
+        "Count: " . $count
+    );
+}
+
+function activateSafetyCooldown($chat_id, $reason, $username, $first_name, $uid = "") {
+    global $PROGRESSIVE_COOLDOWN_SECONDS, $HARD_MUTE_AFTER_COOLDOWNS;
+
+    $data = loadAbuseData();
+    $record = getAbuseUserRecord($chat_id, $data);
+    $record["cooldown_level"] = (int)($record["cooldown_level"] ?? 0) + 1;
+    $record["last_reason"] = $reason;
+    $record["updated_at"] = date("Y-m-d H:i:s");
+
+    if ($record["cooldown_level"] >= $HARD_MUTE_AFTER_COOLDOWNS) {
+        $record["hard_muted"] = true;
+        $record["cooldown_until"] = time() + 86400;
+    } else {
+        $durationIndex = min($record["cooldown_level"] - 1, count($PROGRESSIVE_COOLDOWN_SECONDS) - 1);
+        $duration = $PROGRESSIVE_COOLDOWN_SECONDS[$durationIndex];
+        $record["cooldown_until"] = time() + $duration;
+    }
+
+    $data["users"][(string)$chat_id] = $record;
+    saveAbuseData($data);
+
+    setUserState($chat_id, "locked", [
+        "lock_reason" => $reason,
+        "locked_until" => $record["cooldown_until"],
+        "username" => $username,
+        "first_name" => $first_name
+    ]);
+
+    notifyPossibleSpam($chat_id, $username, $first_name, $uid, $reason, $record["cooldown_level"]);
+    return $record;
+}
+
+function trackIncomingMessageLimit($chat_id, $username, $first_name) {
+    global $HOURLY_MESSAGE_LIMIT;
+
+    $data = loadAbuseData();
+    $record = getAbuseUserRecord($chat_id, $data);
+    $record["hourly"]["messages"] = (int)($record["hourly"]["messages"] ?? 0) + 1;
+    $data["users"][(string)$chat_id] = $record;
+    saveAbuseData($data);
+
+    if ($record["hourly"]["messages"] > $HOURLY_MESSAGE_LIMIT) {
+        activateSafetyCooldown($chat_id, "Hourly message limit exceeded", $username, $first_name);
+        return false;
+    }
+
+    return true;
+}
+
+function trackUidFailureLimit($chat_id, $username, $first_name, $uid = "") {
+    global $DAILY_UID_FAILURE_LIMIT;
+
+    $data = loadAbuseData();
+    $record = getAbuseUserRecord($chat_id, $data);
+    $record["daily"]["uid_failures"] = (int)($record["daily"]["uid_failures"] ?? 0) + 1;
+    $data["users"][(string)$chat_id] = $record;
+    saveAbuseData($data);
+
+    if ($record["daily"]["uid_failures"] > $DAILY_UID_FAILURE_LIMIT) {
+        activateSafetyCooldown($chat_id, "Daily UID failure limit exceeded", $username, $first_name, $uid);
+        return false;
+    }
+
+    return true;
+}
+
+function trackWithdrawCheckLimit($chat_id, $uid, $username, $first_name) {
+    global $DAILY_WITHDRAW_CHECK_LIMIT;
+
+    $data = loadAbuseData();
+    $record = getAbuseUserRecord($chat_id, $data);
+    $record["daily"]["withdraw_checks"] = (int)($record["daily"]["withdraw_checks"] ?? 0) + 1;
+    $data["users"][(string)$chat_id] = $record;
+    saveAbuseData($data);
+
+    if ($record["daily"]["withdraw_checks"] > $DAILY_WITHDRAW_CHECK_LIMIT) {
+        activateSafetyCooldown($chat_id, "Daily withdrawal check limit exceeded", $username, $first_name, $uid);
+        return false;
+    }
+
+    return true;
+}
+
+function registerUidUsage($uid, $chat_id, $username, $first_name) {
+    global $UID_REVIEW_CHAT_LIMIT;
+
+    $uid = trim((string)$uid);
+
+    if ($uid === "") {
+        return false;
+    }
+
+    $data = loadAbuseData();
+
+    if (!isset($data["uids"][$uid]) || !is_array($data["uids"][$uid])) {
+        $data["uids"][$uid] = [
+            "chat_ids" => [],
+            "review_mode" => false,
+            "last_alert_at" => 0,
+            "updated_at" => date("Y-m-d H:i:s")
+        ];
+    }
+
+    $chatIds = $data["uids"][$uid]["chat_ids"] ?? [];
+    $chatIds[] = (string)$chat_id;
+    $chatIds = array_values(array_unique($chatIds));
+    $data["uids"][$uid]["chat_ids"] = $chatIds;
+    $data["uids"][$uid]["updated_at"] = date("Y-m-d H:i:s");
+
+    if (count($chatIds) >= $UID_REVIEW_CHAT_LIMIT) {
+        $data["uids"][$uid]["review_mode"] = true;
+
+        if (time() - (int)($data["uids"][$uid]["last_alert_at"] ?? 0) > 3600) {
+            notifyPossibleSpam($chat_id, $username, $first_name, $uid, "Same UID used by multiple Telegram users", count($chatIds));
+            $data["uids"][$uid]["last_alert_at"] = time();
+        }
+    }
+
+    saveAbuseData($data);
+    return !empty($data["uids"][$uid]["review_mode"]);
+}
+
+function showUidReviewModeMessage($chat_id) {
+    global $HUMAN_AGENT_URL;
+
+    sendMessage(
+        $chat_id,
+        "This UID requires a manual review.\n\nWe will connect you with a human teacher. Please wait a moment.",
+        [
+            "inline_keyboard" => [
+                [
+                    [
+                        "text" => "Connect me",
+                        "url" => $HUMAN_AGENT_URL
+                    ]
+                ]
+            ]
+        ]
+    );
+}
+
 function getDisplayName($username, $first_name) {
     if ($username !== "") {
         return "@" . htmlspecialchars($username);
@@ -566,29 +817,27 @@ function showLockoutMessage($chat_id, $username, $first_name, $intro = "") {
         $intro .= "\n\nPlease try again in " . $waitTime . ".";
     }
 
-    showHumanAgentMenu($chat_id, $intro);
+    sendMessage($chat_id, $intro);
     return true;
 }
 
-function lockUser($chat_id, $reason, $username, $first_name) {
-    global $LOCKOUT_SECONDS;
-
-    setUserState($chat_id, "locked", [
-        "lock_reason" => $reason,
-        "locked_until" => time() + $LOCKOUT_SECONDS,
-        "username" => $username,
-        "first_name" => $first_name
-    ]);
+function lockUser($chat_id, $reason, $username, $first_name, $uid = "") {
+    activateSafetyCooldown($chat_id, $reason, $username, $first_name, $uid);
 }
 
-function handleFailedUidAttempt($chat_id, $username, $first_name) {
+function handleFailedUidAttempt($chat_id, $username, $first_name, $attemptedUid = "") {
     global $MAX_FAILED_ATTEMPTS;
+
+    if (!trackUidFailureLimit($chat_id, $username, $first_name, $attemptedUid)) {
+        showLockoutMessage($chat_id, $username, $first_name);
+        return;
+    }
 
     $state = getUserState($chat_id);
     $attempts = (int)($state["uid_failed_attempts"] ?? 0) + 1;
 
     if ($attempts >= $MAX_FAILED_ATTEMPTS) {
-        lockUser($chat_id, "uid", $username, $first_name);
+        lockUser($chat_id, "UID failed 3 times", $username, $first_name, $attemptedUid);
         $displayName = getDisplayName($username, $first_name);
         showLockoutMessage(
             $chat_id,
@@ -618,7 +867,7 @@ function handleFailedOrderAttempt($chat_id, $uid, $username, $first_name) {
     $attempts = (int)($state["order_failed_attempts"] ?? 0) + 1;
 
     if ($attempts >= $MAX_FAILED_ATTEMPTS) {
-        lockUser($chat_id, "order", $username, $first_name);
+        lockUser($chat_id, "Order number failed 3 times", $username, $first_name, $uid);
         $displayName = getDisplayName($username, $first_name);
         showLockoutMessage(
             $chat_id,
@@ -684,6 +933,12 @@ function sendWithdrawalStatusResult($chat_id, $uid, $orderNumber, $status, $user
 
 function completeWithdrawalCheck($chat_id, $uid, $orderNumber, $username, $first_name) {
     $orderNumber = normalizeOrderNumber($orderNumber);
+
+    if (!trackWithdrawCheckLimit($chat_id, $uid, $username, $first_name)) {
+        showLockoutMessage($chat_id, $username, $first_name);
+        return;
+    }
+
     $status = getWithdrawalStatus($orderNumber);
 
     if ($status === "") {
@@ -724,7 +979,17 @@ if (isset($update["message"])) {
     $first_name = $message["from"]["first_name"] ?? "there";
     $username = $message["from"]["username"] ?? "";
 
+    if (isHardMuted($chat_id)) {
+        showRestrictedAccessMessage($chat_id);
+        exit;
+    }
+
     if (getActiveLockout($chat_id)) {
+        showLockoutMessage($chat_id, $username, $first_name);
+        exit;
+    }
+
+    if (!trackIncomingMessageLimit($chat_id, $username, $first_name)) {
         showLockoutMessage($chat_id, $username, $first_name);
         exit;
     }
@@ -790,6 +1055,7 @@ if (isset($update["message"])) {
         // Format UID: angka saja, tepat 8 digit
         if (preg_match('/^[0-9]{8}$/', $text) && isUidRegistered($text)) {
             $uid = $text;
+            $requiresReview = registerUidUsage($uid, $chat_id, $username, $first_name);
 
             setUserState($chat_id, "uid_received", [
                 "uid" => $uid,
@@ -797,11 +1063,16 @@ if (isset($update["message"])) {
                 "first_name" => $first_name
             ]);
 
+            if ($requiresReview) {
+                showUidReviewModeMessage($chat_id);
+                exit;
+            }
+
             // Pertama kali setelah UID, belum ada tombol human teacher.
             showProblemMenu($chat_id, $uid, false);
             exit;
         } else {
-            handleFailedUidAttempt($chat_id, $username, $first_name);
+            handleFailedUidAttempt($chat_id, $username, $first_name, $text);
             exit;
         }
     }
@@ -868,6 +1139,11 @@ if (isset($update["callback_query"])) {
     $username = $callback["from"]["username"] ?? "";
 
     answerCallbackQuery($callback_query_id);
+
+    if (isHardMuted($chat_id)) {
+        showRestrictedAccessMessage($chat_id);
+        exit;
+    }
 
     if ($data === "quit_bot") {
         if (!getActiveLockout($chat_id)) {
