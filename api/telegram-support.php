@@ -1,7 +1,7 @@
 <?php
 // ===============================
 // YAARWIN TELEGRAM BOT
-// UID FLOW + SAMPLE PHOTO + RECHARGE SUBMENU + HUMAN TEACHER HANDOFF
+// UID FLOW + SAMPLE PHOTO + RECHARGE SUBMENU + HUMAN AGENT HANDOFF
 // File: api/telegram-support.php
 // ===============================
 
@@ -50,7 +50,7 @@ $WITHDRAWAL_STATUS_FILE = $PRIVATE_BOT_DIR . "/withdrawal_status.json";
 $REGISTERED_UIDS_FILE = $PRIVATE_BOT_DIR . "/registered_uids.json";
 $LOCKOUT_SECONDS = 300;
 $MAX_FAILED_ATTEMPTS = 3;
-$HUMAN_TEACHER_URL = "https://t.me/official_yaarwinapp";
+$HUMAN_AGENT_URL = "https://t.me/official_yaarwinapp";
 
 function readBotDataFile($file) {
     if (!file_exists($file)) {
@@ -391,7 +391,7 @@ function showWelcome($chat_id, $username, $first_name) {
 }
 
 function showProblemMenu($chat_id, $uid, $withQuit = false) {
-    global $HUMAN_TEACHER_URL;
+    global $HUMAN_AGENT_URL;
 
     $text = "✅ UID received: <b>" . htmlspecialchars($uid) . "</b>\n\n";
     $text .= "<b>What's your problem?</b>";
@@ -413,12 +413,12 @@ function showProblemMenu($chat_id, $uid, $withQuit = false) {
         ]
     ];
 
-    // Human teacher button appears after user returns from submenu / back main menu.
+    // Human agent button appears after user returns from submenu / back main menu.
     if ($withQuit) {
         $buttons[] = [
             [
-                "text" => "Chat with human teacher",
-                "url" => $HUMAN_TEACHER_URL
+                "text" => "Chat with human agent",
+                "url" => $HUMAN_AGENT_URL
             ]
         ];
     }
@@ -460,19 +460,19 @@ function showRechargeMenu($chat_id) {
     sendMessage($chat_id, $text, $keyboard);
 }
 
-function showHumanTeacherMessage($chat_id, $username, $first_name) {
-    global $HUMAN_TEACHER_URL;
+function showHumanAgentMessage($chat_id, $username, $first_name) {
+    global $HUMAN_AGENT_URL;
 
     $displayName = getDisplayName($username, $first_name);
 
-    $text = $displayName . ", please chat with our human teacher for further assistance.";
+    $text = $displayName . ", please chat with our human agent for further assistance.";
 
     $keyboard = [
         "inline_keyboard" => [
             [
                 [
-                    "text" => "Chat with human teacher",
-                    "url" => $HUMAN_TEACHER_URL
+                    "text" => "Chat with human agent",
+                    "url" => $HUMAN_AGENT_URL
                 ]
             ]
         ]
@@ -481,15 +481,15 @@ function showHumanTeacherMessage($chat_id, $username, $first_name) {
     sendMessage($chat_id, $text, $keyboard);
 }
 
-function showHumanTeacherMenu($chat_id, $text) {
-    global $HUMAN_TEACHER_URL;
+function showHumanAgentMenu($chat_id, $text) {
+    global $HUMAN_AGENT_URL;
 
     $keyboard = [
         "inline_keyboard" => [
             [
                 [
-                    "text" => "Chat with human teacher",
-                    "url" => $HUMAN_TEACHER_URL
+                    "text" => "Chat with human agent",
+                    "url" => $HUMAN_AGENT_URL
                 ]
             ]
         ]
@@ -533,7 +533,7 @@ function showLockoutMessage($chat_id, $username, $first_name, $intro = "") {
         $intro .= "\n\nPlease try again in " . $waitTime . ".";
     }
 
-    showHumanTeacherMenu($chat_id, $intro);
+    showHumanAgentMenu($chat_id, $intro);
     return true;
 }
 
@@ -637,7 +637,7 @@ function sendWithdrawalStatusResult($chat_id, $uid, $orderNumber, $status, $user
     $text .= "<b>UID:</b> " . htmlspecialchars($uid) . "\n";
     $text .= "<b>Order number:</b> " . htmlspecialchars($orderNumber);
 
-    showHumanTeacherMenu($chat_id, $text);
+    showHumanAgentMenu($chat_id, $text);
 
     notifyAdmin(
         "📩 YaarWin Withdrawal Check\n\n" .
@@ -764,7 +764,7 @@ if (isset($update["message"])) {
                 "first_name" => $first_name
             ]);
 
-            // Pertama kali setelah UID, belum ada tombol human teacher.
+            // Pertama kali setelah UID, belum ada tombol human agent.
             showProblemMenu($chat_id, $uid, false);
             exit;
         } else {
@@ -841,7 +841,7 @@ if (isset($update["callback_query"])) {
             clearUserState($chat_id);
         }
 
-        showHumanTeacherMessage($chat_id, $username, $first_name);
+        showHumanAgentMessage($chat_id, $username, $first_name);
         exit;
     }
 
@@ -893,7 +893,7 @@ if (isset($update["callback_query"])) {
         exit;
     }
 
-    // Balik ke menu utama: What's your problem + tombol human teacher
+    // Balik ke menu utama: What's your problem + tombol human agent
     if ($data === "back_main_menu") {
         setUserState($chat_id, "uid_received", [
             "uid" => $uid,
