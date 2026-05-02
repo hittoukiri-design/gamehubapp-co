@@ -69,6 +69,9 @@ $HARD_MUTE_AFTER_COOLDOWNS = 5;
 $DAILY_WITHDRAW_CHECK_LIMIT = 5;
 $DAILY_UID_FAILURE_LIMIT = 6;
 $HOURLY_MESSAGE_LIMIT = 10;
+$MINUTE_CALLBACK_LIMIT = 12;
+$SAME_CALLBACK_LIMIT = 4;
+$DAILY_AGENT_INTEREST_LIMIT = 3;
 $UID_REVIEW_CHAT_LIMIT = 3;
 $HUMAN_AGENT_URL = "https://t.me/Official_YaarWinapp";
 
@@ -464,11 +467,19 @@ function getDefaultAbuseUserRecord() {
         "daily" => [
             "date" => date("Y-m-d"),
             "withdraw_checks" => 0,
-            "uid_failures" => 0
+            "uid_failures" => 0,
+            "agent_interest_clicks" => 0
         ],
         "hourly" => [
             "hour" => date("Y-m-d H"),
             "messages" => 0
+        ],
+        "callbacks" => [
+            "minute" => date("Y-m-d H:i"),
+            "count" => 0,
+            "last_action" => "",
+            "same_action_count" => 0,
+            "last_alert_at" => 0
         ],
         "last_reason" => "",
         "updated_at" => date("Y-m-d H:i:s")
@@ -488,14 +499,33 @@ function getAbuseUserRecord($chat_id, &$data) {
         $record["daily"] = [
             "date" => date("Y-m-d"),
             "withdraw_checks" => 0,
-            "uid_failures" => 0
+            "uid_failures" => 0,
+            "agent_interest_clicks" => 0
         ];
+    }
+
+    if (!isset($record["daily"]["agent_interest_clicks"])) {
+        $record["daily"]["agent_interest_clicks"] = 0;
     }
 
     if (($record["hourly"]["hour"] ?? "") !== date("Y-m-d H")) {
         $record["hourly"] = [
             "hour" => date("Y-m-d H"),
             "messages" => 0
+        ];
+    }
+
+    if (!isset($record["callbacks"]) || !is_array($record["callbacks"])) {
+        $record["callbacks"] = getDefaultAbuseUserRecord()["callbacks"];
+    }
+
+    if (($record["callbacks"]["minute"] ?? "") !== date("Y-m-d H:i")) {
+        $record["callbacks"] = [
+            "minute" => date("Y-m-d H:i"),
+            "count" => 0,
+            "last_action" => "",
+            "same_action_count" => 0,
+            "last_alert_at" => (int)($record["callbacks"]["last_alert_at"] ?? 0)
         ];
     }
 
@@ -519,9 +549,11 @@ function showRestrictedAccessMessage($chat_id) {
 }
 
 function notifyPossibleSpam($chat_id, $username, $first_name, $uid, $reason, $count) {
+    $usernameLabel = "@" . ($username ?: "no_username");
+
     notifyAdmin(
-        "⚠️ Possible spam detected\n\n" .
-        "User: @" . ($username ?: "no_username") . "\n" .
+        "⚠️ Possible spam detected 🤣\n\n" .
+        "ID " . $usernameLabel . " is trying to spam the bot. They may be upset after losing a game.\n" .
         "Name: " . $first_name . "\n" .
         "Chat ID: " . $chat_id . "\n" .
         "UID: " . ($uid !== "" ? $uid : "Not provided") . "\n" .
@@ -607,6 +639,54 @@ function trackWithdrawCheckLimit($chat_id, $uid, $username, $first_name) {
 
     if ($record["daily"]["withdraw_checks"] > $DAILY_WITHDRAW_CHECK_LIMIT) {
         activateSafetyCooldown($chat_id, "Daily withdrawal check limit exceeded", $username, $first_name, $uid);
+        return false;
+    }
+
+    return true;
+}
+
+function trackCallbackLimit($chat_id, $username, $first_name, $action, $uid = "") {
+    global $MINUTE_CALLBACK_LIMIT, $SAME_CALLBACK_LIMIT, $DAILY_AGENT_INTEREST_LIMIT;
+
+    $data = loadAbuseData();
+    $record = getAbuseUserRecord($chat_id, $data);
+
+    $record["callbacks"]["count"] = (int)($record["callbacks"]["count"] ?? 0) + 1;
+
+    if (($record["callbacks"]["last_action"] ?? "") === $action) {
+        $record["callbacks"]["same_action_count"] = (int)($record["callbacks"]["same_action_count"] ?? 0) + 1;
+    } else {
+        $record["callbacks"]["last_action"] = $action;
+        $record["callbacks"]["same_action_count"] = 1;
+    }
+
+    if ($action === "potential_agent_yes") {
+        $record["daily"]["agent_interest_clicks"] = (int)($record["daily"]["agent_interest_clicks"] ?? 0) + 1;
+    }
+
+    $data["users"][(string)$chat_id] = $record;
+    saveAbuseData($data);
+
+    $shouldLock = false;
+    $reason = "";
+    $count = $record["callbacks"]["count"];
+
+    if ($record["callbacks"]["count"] > $MINUTE_CALLBACK_LIMIT) {
+        $shouldLock = true;
+        $reason = "Button click limit exceeded";
+        $count = $record["callbacks"]["count"];
+    } elseif ($record["callbacks"]["same_action_count"] > $SAME_CALLBACK_LIMIT) {
+        $shouldLock = true;
+        $reason = "Repeated button click limit exceeded: " . $action;
+        $count = $record["callbacks"]["same_action_count"];
+    } elseif ($action === "potential_agent_yes" && $record["daily"]["agent_interest_clicks"] > $DAILY_AGENT_INTEREST_LIMIT) {
+        $shouldLock = true;
+        $reason = "Agent interest button clicked too many times";
+        $count = $record["daily"]["agent_interest_clicks"];
+    }
+
+    if ($shouldLock) {
+        activateSafetyCooldown($chat_id, $reason, $username, $first_name, $uid);
         return false;
     }
 
@@ -1251,6 +1331,14 @@ if (isset($update["callback_query"])) {
 
     if (isHardMuted($chat_id)) {
         showRestrictedAccessMessage($chat_id);
+        exit;
+    }
+
+    $callbackState = getUserState($chat_id);
+    $callbackUid = $callbackState["uid"] ?? "";
+
+    if (!trackCallbackLimit($chat_id, $username, $first_name, $data, $callbackUid)) {
+        showLockoutMessage($chat_id, $username, $first_name);
         exit;
     }
 
