@@ -52,6 +52,7 @@ $ADMIN_CHAT_ID = "";
 
 // URL sample UID kamu
 $UID_SAMPLE_PHOTO = "https://yaarwinapp.co/assets/uid-sample.jpg";
+$WELCOME_ANIMATION_URL = "https://yaarwinapp.co/assets/yaarwin-intro-tg.mp4";
 
 $API_URL = "https://api.telegram.org/bot" . $BOT_TOKEN . "/";
 
@@ -277,6 +278,62 @@ function apiRequest($method, $data = []) {
     curl_close($ch);
 
     return $result;
+}
+
+
+function isTelegramOk($result) {
+    $decoded = json_decode($result, true);
+    return is_array($decoded) && !empty($decoded["ok"]);
+}
+
+function sendAnimation($chat_id, $animation_url, $caption = "", $reply_markup = null) {
+    $data = [
+        "chat_id" => $chat_id,
+        "animation" => $animation_url,
+        "parse_mode" => "HTML"
+    ];
+
+    if ($caption !== "") {
+        $data["caption"] = $caption;
+    }
+
+    if ($reply_markup) {
+        $data["reply_markup"] = json_encode($reply_markup);
+    }
+
+    return apiRequest("sendAnimation", $data);
+}
+
+function sendVideo($chat_id, $video_url, $caption = "", $reply_markup = null) {
+    $data = [
+        "chat_id" => $chat_id,
+        "video" => $video_url,
+        "parse_mode" => "HTML"
+    ];
+
+    if ($caption !== "") {
+        $data["caption"] = $caption;
+    }
+
+    if ($reply_markup) {
+        $data["reply_markup"] = json_encode($reply_markup);
+    }
+
+    return apiRequest("sendVideo", $data);
+}
+
+function sendWelcomeAnimation($chat_id) {
+    global $WELCOME_ANIMATION_URL;
+
+    if ($WELCOME_ANIMATION_URL === "") {
+        return;
+    }
+
+    $result = sendAnimation($chat_id, $WELCOME_ANIMATION_URL);
+
+    if (!isTelegramOk($result)) {
+        sendVideo($chat_id, $WELCOME_ANIMATION_URL);
+    }
 }
 
 function sendMessage($chat_id, $text, $reply_markup = null) {
@@ -623,6 +680,8 @@ function getDisplayName($username, $first_name) {
 }
 
 function showWelcome($chat_id, $username, $first_name) {
+    sendWelcomeAnimation($chat_id);
+
     $displayName = getDisplayName($username, $first_name);
 
     $text = "👋 Hello, " . $displayName . " welcome to <b>YaarWin</b>! 🎉\n\n";
