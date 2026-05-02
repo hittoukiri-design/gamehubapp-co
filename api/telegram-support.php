@@ -1,7 +1,7 @@
 <?php
 // ===============================
 // YAARWIN TELEGRAM BOT
-// UID FLOW + SAMPLE PHOTO + RECHARGE SUBMENU + HUMAN AGENT HANDOFF
+// UID FLOW + SAMPLE PHOTO + RECHARGE SUBMENU + HUMAN TEACHER HANDOFF
 // File: api/telegram-support.php
 // ===============================
 
@@ -413,11 +413,11 @@ function showProblemMenu($chat_id, $uid, $withQuit = false) {
         ]
     ];
 
-    // Human agent button appears after user returns from submenu / back main menu.
+    // Human teacher button appears after user returns from submenu / back main menu.
     if ($withQuit) {
         $buttons[] = [
             [
-                "text" => "Chat with human agent",
+                "text" => "Chat with human teacher",
                 "url" => $HUMAN_AGENT_URL
             ]
         ];
@@ -465,13 +465,13 @@ function showHumanAgentMessage($chat_id, $username, $first_name) {
 
     $displayName = getDisplayName($username, $first_name);
 
-    $text = $displayName . ", please chat with our human agent for further assistance.";
+    $text = $displayName . ", please chat with our human teacher for further assistance.";
 
     $keyboard = [
         "inline_keyboard" => [
             [
                 [
-                    "text" => "Chat with human agent",
+                    "text" => "Chat with human teacher",
                     "url" => $HUMAN_AGENT_URL
                 ]
             ]
@@ -488,7 +488,7 @@ function showHumanAgentMenu($chat_id, $text) {
         "inline_keyboard" => [
             [
                 [
-                    "text" => "Chat with human agent",
+                    "text" => "Chat with human teacher",
                     "url" => $HUMAN_AGENT_URL
                 ]
             ]
@@ -764,7 +764,7 @@ if (isset($update["message"])) {
                 "first_name" => $first_name
             ]);
 
-            // Pertama kali setelah UID, belum ada tombol human agent.
+            // Pertama kali setelah UID, belum ada tombol human teacher.
             showProblemMenu($chat_id, $uid, false);
             exit;
         } else {
@@ -893,7 +893,7 @@ if (isset($update["callback_query"])) {
         exit;
     }
 
-    // Balik ke menu utama: What's your problem + tombol human agent
+    // Balik ke menu utama: What's your problem + tombol human teacher
     if ($data === "back_main_menu") {
         setUserState($chat_id, "uid_received", [
             "uid" => $uid,
