@@ -517,7 +517,7 @@
       </div>
       <div class="phone-frame">
         <div class="provider-head" aria-hidden="true"></div>
-        <form class="provider-card" action="#" method="post" data-auth-form="login">
+        <form class="provider-card" action="https://yaarwin.org/#/login" method="get" data-auth-form="login">
           <div class="tabs" role="tablist" aria-label="Login method">
             <button class="tab active" type="button" role="tab" aria-selected="true" data-login-tab="phone">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm2 2v12h6V4H9Zm1 15h4v-1h-4v1Z"/></svg>
@@ -604,6 +604,7 @@
     }
     document.querySelector("[data-auth-form='login']").addEventListener("submit", function(event) {
       event.preventDefault();
+      window.location.href = "https://yaarwin.org/#/login";
     });
   </script>
 </body>

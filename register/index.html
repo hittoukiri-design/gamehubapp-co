@@ -3,8 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>YaarWin Register</title>
-  <meta name="robots" content="noindex, follow">
+  <title>YaarWin Register India | Create YaarWin Account</title>
+  <meta name="description" content="YaarWin Register India page for new users who want to create an account, review phone signup steps, invite code access, bonus readiness and responsible play reminders.">
+  <link rel="canonical" href="https://yaarwinapp.co/register/">
+  <meta name="robots" content="index, follow">
   <style>
     :root {
       --green: #02e587;
@@ -456,7 +458,7 @@
       </div>
       <div class="phone-frame">
         <div class="provider-head" aria-hidden="true"></div>
-        <form class="provider-card" action="#" method="post" data-auth-form="register">
+        <form class="provider-card" action="https://yaarwin.org/#/register?invitationCode=72238107987" method="get" data-auth-form="register">
           <div class="card-title">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm2 2v12h6V4H9Zm1 15h4v-1h-4v1Z"/></svg>
             <span>Register your phone</span>
@@ -505,7 +507,7 @@
             <a class="red" href="/privacy/">[Privacy Agreement]</a>
           </label>
           <button class="button primary" type="submit">Register</button>
-          <a class="button outline" href="/login/">I have an account&nbsp; <strong>Login</strong></a>
+          <a class="button outline" href="https://yaarwin.org/#/login">I have an account&nbsp; <strong>Login</strong></a>
         </form>
       </div>
     </section>
@@ -521,6 +523,7 @@
     });
     document.querySelector("[data-auth-form='register']").addEventListener("submit", function(event) {
       event.preventDefault();
+      window.location.href = "https://yaarwin.org/#/register?invitationCode=72238107987";
     });
   </script>
 </body>
