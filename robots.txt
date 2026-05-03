@@ -1,5 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /go/
 Disallow: /best-betting-india/
 Disallow: /assets/img/games/test.txt
 Disallow: /assets/img/games/slots/HOW-TO-ADD.txt

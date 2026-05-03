@@ -21,6 +21,7 @@ DirectoryIndex index.html index.php default.php
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteRule (^|/)\. - [F,L]
+  RewriteRule ^go/register/?$ https://yaarwin.org/#/register?invitationCode=72238107987 [R=302,L,NE]
   RewriteRule ^best-betting-india/?$ /best-online-betting-india/ [R=301,L]
   RewriteRule ^best-betting-india/(.*)$ /$1 [R=301,L]
   RewriteRule ^private_bot/ - [F,L]
