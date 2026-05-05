@@ -193,7 +193,7 @@ function getWithdrawalStatus($orderNumber) {
             $status = strtolower(trim((string)$value));
         }
 
-        if (in_array($status, ["completed", "complete", "done", "success", "paid", "transferred"], true)) {
+        if (in_array($status, ["completed", "complete", "done", "success", "successful", "paid", "transferred"], true)) {
             return "completed";
         }
 
