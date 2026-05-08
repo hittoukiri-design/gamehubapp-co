@@ -18,6 +18,7 @@ if (!is_file($PRIVATE_CONFIG)) {
 $config = require $PRIVATE_CONFIG;
 $BOT_TOKEN = $config["BOT_TOKEN"] ?? "";
 $WEBHOOK_SECRET = $config["WEBHOOK_SECRET"] ?? "";
+$PANEL_AUTO_SYNC_SECRET = (string)($config["PANEL_AUTO_SYNC_SECRET"] ?? $WEBHOOK_SECRET);
 
 if ($BOT_TOKEN === "") {
     http_response_code(500);
@@ -37,19 +38,11 @@ if ($requestMethod === "GET" || $requestMethod === "HEAD") {
     exit;
 }
 
-// Secret webhook validation. Setelah upload versi ini, webhook perlu diset ulang dengan secret_token yang sama.
-if ($WEBHOOK_SECRET !== "") {
-    $incomingSecret = $_SERVER["HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN"] ?? "";
-    if (!hash_equals($WEBHOOK_SECRET, $incomingSecret)) {
-        http_response_code(403);
-        exit;
-    }
-}
-
 // Optional bot admin settings. Keep secrets inside private_bot/config.php or panel_token.txt.
 $ADMIN_CHAT_ID = (string)($config["ADMIN_CHAT_ID"] ?? "8655066559");
 $PANEL_BEARER_TOKEN = trim((string)($config["PANEL_BEARER_TOKEN"] ?? ""));
 $PANEL_SYNC_DAYS = max(1, min(31, (int)($config["PANEL_SYNC_DAYS"] ?? 8)));
+$PANEL_AUTO_SYNC_MIN_INTERVAL = max(60, (int)($config["PANEL_AUTO_SYNC_MIN_INTERVAL"] ?? 300));
 
 // URL sample UID kamu
 $UID_SAMPLE_PHOTO = "https://yaarwinapp.co/assets/uid-sample-20260508.jpg";
@@ -66,6 +59,8 @@ $RECHARGE_PANEL_FILE = $PRIVATE_BOT_DIR . "/recharge_orders.json";
 $PANEL_TOKEN_FILE = $PRIVATE_BOT_DIR . "/panel_token.txt";
 $REGISTERED_UIDS_FILE = $PRIVATE_BOT_DIR . "/registered_uids.json";
 $PANEL_UID_MEMBERS_FILE = $PRIVATE_BOT_DIR . "/uid_members.json";
+$PANEL_AUTO_SYNC_LOCK_FILE = $PRIVATE_BOT_DIR . "/panel_auto_sync.lock";
+$PANEL_AUTO_SYNC_META_FILE = $PRIVATE_BOT_DIR . "/panel_auto_sync_meta.json";
 $ABUSE_FILE = $PRIVATE_BOT_DIR . "/abuse_control.json";
 $LOCKOUT_SECONDS = 300;
 $MAX_FAILED_ATTEMPTS = 3;
@@ -1147,6 +1142,78 @@ function handleSyncRechargeCommand($chat_id) {
     );
 }
 
+function isPanelAutoSyncRequest($payload) {
+    return is_array($payload) && (($payload["action"] ?? "") === "panel_sync");
+}
+
+function handlePanelAutoSyncRequest() {
+    global $PANEL_AUTO_SYNC_LOCK_FILE, $PANEL_AUTO_SYNC_META_FILE, $PANEL_AUTO_SYNC_SECRET, $PANEL_AUTO_SYNC_MIN_INTERVAL;
+
+    header("Content-Type: application/json; charset=utf-8");
+    header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+
+    $incomingSecret = $_SERVER["HTTP_X_PANEL_AUTO_SYNC_SECRET"] ?? "";
+
+    if ($PANEL_AUTO_SYNC_SECRET !== "" && !hash_equals($PANEL_AUTO_SYNC_SECRET, $incomingSecret)) {
+        http_response_code(403);
+        echo json_encode([
+            "ok" => false,
+            "status" => "forbidden"
+        ]);
+        return;
+    }
+
+    $lastMeta = readBotDataFile($PANEL_AUTO_SYNC_META_FILE);
+    $lastFinishedAt = isset($lastMeta["finished_at"]) ? strtotime((string)$lastMeta["finished_at"]) : 0;
+
+    if ($lastFinishedAt > 0 && (time() - $lastFinishedAt) < $PANEL_AUTO_SYNC_MIN_INTERVAL) {
+        echo json_encode([
+            "ok" => true,
+            "status" => "skipped",
+            "message" => "Panel auto-sync interval has not elapsed yet.",
+            "last_finished_at" => $lastMeta["finished_at"],
+            "next_allowed_at" => date("c", $lastFinishedAt + $PANEL_AUTO_SYNC_MIN_INTERVAL)
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        return;
+    }
+
+    $lock = fopen($PANEL_AUTO_SYNC_LOCK_FILE, "c");
+
+    if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
+        echo json_encode([
+            "ok" => false,
+            "status" => "busy",
+            "message" => "Panel auto-sync is already running."
+        ]);
+        return;
+    }
+
+    $startedAt = date("c");
+    $started = microtime(true);
+    $results = [
+        "wd" => syncPanelWithdrawalOrders(),
+        "uid" => syncPanelRegisteredUids(),
+        "rc" => syncPanelRechargeOrders()
+    ];
+    $duration = round(microtime(true) - $started, 3);
+
+    $summary = [
+        "ok" => !empty($results["wd"]["ok"]) && !empty($results["uid"]["ok"]) && !empty($results["rc"]["ok"]),
+        "status" => "completed",
+        "started_at" => $startedAt,
+        "finished_at" => date("c"),
+        "duration_seconds" => $duration,
+        "results" => $results
+    ];
+
+    writeBotDataFile($PANEL_AUTO_SYNC_META_FILE, $summary);
+
+    flock($lock, LOCK_UN);
+    fclose($lock);
+
+    echo json_encode($summary, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+}
+
 function sendPhoto($chat_id, $photo_url, $caption = "", $reply_markup = null) {
     $data = [
         "chat_id" => $chat_id,
@@ -1986,6 +2053,20 @@ $update = json_decode(file_get_contents("php://input"), true);
 
 if (!$update) {
     exit;
+}
+
+if (isPanelAutoSyncRequest($update)) {
+    handlePanelAutoSyncRequest();
+    exit;
+}
+
+// Secret webhook validation. Telegram updates tetap harus melewati secret token.
+if ($WEBHOOK_SECRET !== "") {
+    $incomingSecret = $_SERVER["HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN"] ?? "";
+    if (!hash_equals($WEBHOOK_SECRET, $incomingSecret)) {
+        http_response_code(403);
+        exit;
+    }
 }
 
 // ===============================
