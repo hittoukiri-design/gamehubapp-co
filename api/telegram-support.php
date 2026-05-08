@@ -62,6 +62,7 @@ $STATE_FILE = $PRIVATE_BOT_DIR . "/user_state.json";
 $USERS_FILE = $PRIVATE_BOT_DIR . "/users.json";
 $WITHDRAWAL_STATUS_FILE = $PRIVATE_BOT_DIR . "/withdrawal_status.json";
 $WITHDRAWAL_PANEL_FILE = $PRIVATE_BOT_DIR . "/withdraw_orders.json";
+$RECHARGE_PANEL_FILE = $PRIVATE_BOT_DIR . "/recharge_orders.json";
 $PANEL_TOKEN_FILE = $PRIVATE_BOT_DIR . "/panel_token.txt";
 $REGISTERED_UIDS_FILE = $PRIVATE_BOT_DIR . "/registered_uids.json";
 $PANEL_UID_MEMBERS_FILE = $PRIVATE_BOT_DIR . "/uid_members.json";
@@ -146,6 +147,24 @@ function savePanelWithdrawalOrders($orders) {
 
     ksort($orders);
     writeBotDataFile($WITHDRAWAL_PANEL_FILE, $orders);
+}
+
+function loadPanelRechargeOrders() {
+    global $RECHARGE_PANEL_FILE;
+
+    if (!file_exists($RECHARGE_PANEL_FILE)) {
+        writeBotDataFile($RECHARGE_PANEL_FILE, []);
+    }
+
+    $orders = readBotDataFile($RECHARGE_PANEL_FILE);
+    return is_array($orders) ? $orders : [];
+}
+
+function savePanelRechargeOrders($orders) {
+    global $RECHARGE_PANEL_FILE;
+
+    ksort($orders);
+    writeBotDataFile($RECHARGE_PANEL_FILE, $orders);
 }
 
 function loadRegisteredUids() {
@@ -484,14 +503,40 @@ function signPanelPayload($payload) {
 function getPanelDateRange($days) {
     $timezone = new DateTimeZone("Asia/Kolkata");
     $end = new DateTime("now", $timezone);
-    $start = clone $end;
-    $start->modify("-" . max(0, $days - 1) . " days");
+    $start = new DateTime("2026-05-01 00:00:00", $timezone);
 
     return [
         "start" => $start->format("Y-m-d 00:00:00"),
         "end" => $end->format("Y-m-d 23:59:59"),
         "up_end" => $end->format("Y-m-d 00:00:00")
     ];
+}
+
+function isPanelMonthEndReportDay() {
+    $timezone = new DateTimeZone("Asia/Kolkata");
+    $today = new DateTime("now", $timezone);
+
+    return $today->format("Y-m-d") === $today->format("Y-m-t");
+}
+
+function formatPanelRangeLabel($range) {
+    $timezone = new DateTimeZone("Asia/Kolkata");
+    $start = DateTime::createFromFormat("Y-m-d H:i:s", $range["start"] ?? "", $timezone);
+    $end = DateTime::createFromFormat("Y-m-d H:i:s", $range["end"] ?? "", $timezone);
+
+    if (!$start || !$end) {
+        return trim(($range["start"] ?? "") . " - " . ($range["end"] ?? ""));
+    }
+
+    return $start->format("F j, Y") . " - " . $end->format("F j, Y");
+}
+
+function buildMonthEndTotalLine($label, $count, $range) {
+    if (!isPanelMonthEndReportDay()) {
+        return "";
+    }
+
+    return "\nTotal " . $label . " this month (" . htmlspecialchars(formatPanelRangeLabel($range)) . "): <b>" . (int)$count . "</b>";
 }
 
 function mapPanelWithdrawalStatus($status) {
@@ -561,6 +606,41 @@ function normalizePanelUidMemberRow($row) {
         "user_activity_date" => trim((string)($row["userActivityDate"] ?? "")),
         "recharge" => trim((string)($row["recharge"] ?? "")),
         "withdraw" => trim((string)($row["withdraw"] ?? "")),
+        "synced_at" => date("c")
+    ];
+}
+
+function isPanelRechargeSuccess($state) {
+    $state = strtolower(trim((string)$state));
+
+    return in_array($state, ["success", "successful", "passed", "completed", "complete", "paid"], true);
+}
+
+function normalizePanelRechargeRow($row) {
+    $orderNumber = normalizeOrderNumber($row["rechargeNumber"] ?? "");
+
+    if ($orderNumber === "" || !preg_match('/^RC[A-Z0-9]{10,50}$/i', $orderNumber)) {
+        return null;
+    }
+
+    $rawState = trim((string)($row["state"] ?? ""));
+
+    if (!isPanelRechargeSuccess($rawState)) {
+        return null;
+    }
+
+    return [
+        "order_number" => $orderNumber,
+        "uid" => trim((string)($row["memberID"] ?? "")),
+        "username" => trim((string)($row["userName"] ?? "")),
+        "state" => "success",
+        "raw_state" => $rawState,
+        "type" => trim((string)($row["type"] ?? "")),
+        "price" => trim((string)($row["price"] ?? "")),
+        "remark" => cleanPanelText($row["remark"] ?? ""),
+        "add_time" => trim((string)($row["addTime"] ?? "")),
+        "up_time" => trim((string)($row["upTime"] ?? "")),
+        "source" => "panel",
         "synced_at" => date("c")
     ];
 }
@@ -646,6 +726,66 @@ function fetchPanelUidPage($pageNo, $dateRange, &$error = "") {
     $payload["timestamp"] = time();
 
     $ch = curl_init("https://agent.yaariosccwin.com/api/agent/GetSubsetUserList");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Accept: application/json, text/plain, */*",
+        "Authorization: Bearer " . $token,
+        "Content-Type: application/problem+json; charset=UTF-8",
+        "Origin: https://agent.yaariosccwin.com",
+        "Referer: https://agent.yaariosccwin.com/"
+    ]);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+
+    $response = curl_exec($ch);
+    $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+    if (curl_errno($ch)) {
+        $error = "Panel request failed: " . curl_error($ch);
+        curl_close($ch);
+        return null;
+    }
+
+    curl_close($ch);
+
+    $decoded = json_decode($response, true);
+
+    if ($httpCode < 200 || $httpCode >= 300 || !is_array($decoded)) {
+        $error = "Panel returned HTTP " . $httpCode . ". Token may be expired.";
+        return null;
+    }
+
+    if (isset($decoded["code"]) && (int)$decoded["code"] !== 0) {
+        $error = "Panel rejected the request: " . ($decoded["msg"] ?? "unknown error");
+        return null;
+    }
+
+    return $decoded;
+}
+
+function fetchPanelRechargePage($pageNo, $dateRange, &$error = "") {
+    $token = getPanelBearerToken();
+
+    if ($token === "") {
+        $error = "Panel bearer token is not configured.";
+        return null;
+    }
+
+    $payload = [
+        "pageSize" => 50,
+        "pageNo" => (int)$pageNo,
+        "startingTime" => $dateRange["start"],
+        "endingTime" => $dateRange["end"],
+        "setday" => "today",
+        "language" => 0,
+        "random" => makePanelRandom(),
+        "upEndTime" => $dateRange["up_end"]
+    ];
+    $payload["signature"] = signPanelPayload($payload);
+    $payload["timestamp"] = time();
+
+    $ch = curl_init("https://agent.yaariosccwin.com/api/agent/GetRechargeList");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -837,6 +977,79 @@ function syncPanelRegisteredUids() {
     ];
 }
 
+function syncPanelRechargeOrders() {
+    global $PANEL_SYNC_DAYS;
+
+    $dateRange = getPanelDateRange($PANEL_SYNC_DAYS);
+    $cache = loadPanelRechargeOrders();
+    $newCount = 0;
+    $updatedCount = 0;
+    $seenCount = 0;
+    $successCount = 0;
+    $totalPages = 1;
+
+    for ($pageNo = 1; $pageNo <= min($totalPages, 20); $pageNo++) {
+        $error = "";
+        $result = fetchPanelRechargePage($pageNo, $dateRange, $error);
+
+        if (!$result) {
+            return [
+                "ok" => false,
+                "error" => $error,
+                "new" => $newCount,
+                "updated" => $updatedCount,
+                "total_cached" => count($cache),
+                "range" => $dateRange
+            ];
+        }
+
+        $data = $result["data"] ?? [];
+        $list = $data["list"] ?? [];
+        $totalPages = max(1, (int)($data["totalPage"] ?? 1));
+
+        foreach ($list as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $seenCount++;
+            $record = normalizePanelRechargeRow($row);
+
+            if (!$record) {
+                continue;
+            }
+
+            $successCount++;
+            $orderKey = $record["order_number"];
+
+            if (!isset($cache[$orderKey])) {
+                $newCount++;
+            } else {
+                $updatedCount++;
+            }
+
+            $cache[$orderKey] = $record;
+        }
+
+        if (count($list) === 0) {
+            break;
+        }
+    }
+
+    savePanelRechargeOrders($cache);
+
+    return [
+        "ok" => true,
+        "new" => $newCount,
+        "updated" => $updatedCount,
+        "seen" => $seenCount,
+        "success_seen" => $successCount,
+        "pages" => min($totalPages, 20),
+        "total_cached" => count($cache),
+        "range" => $dateRange
+    ];
+}
+
 function handleSyncWithdrawCommand($chat_id) {
     if (!isAdminChat($chat_id)) {
         sendMessage($chat_id, "This command is only available for the bot admin.");
@@ -864,7 +1077,8 @@ function handleSyncWithdrawCommand($chat_id) {
         "Updated orders: <b>" . (int)$result["updated"] . "</b>\n" .
         "Rows seen: <b>" . (int)$result["seen"] . "</b>\n" .
         "Cached orders: <b>" . (int)$result["total_cached"] . "</b>\n" .
-        "Range: <code>" . htmlspecialchars($result["range"]["start"]) . "</code> to <code>" . htmlspecialchars($result["range"]["end"]) . "</code>"
+        "Range: <code>" . htmlspecialchars($result["range"]["start"]) . "</code> to <code>" . htmlspecialchars($result["range"]["end"]) . "</code>" .
+        buildMonthEndTotalLine("WD", (int)$result["total_cached"], $result["range"])
     );
 }
 
@@ -895,7 +1109,41 @@ function handleSyncUidCommand($chat_id) {
         "Updated UIDs: <b>" . (int)$result["updated"] . "</b>\n" .
         "Rows seen: <b>" . (int)$result["seen"] . "</b>\n" .
         "Cached UIDs: <b>" . (int)$result["total_cached"] . "</b>\n" .
-        "Range: <code>" . htmlspecialchars($result["range"]["start"]) . "</code> to <code>" . htmlspecialchars($result["range"]["end"]) . "</code>"
+        "Range: <code>" . htmlspecialchars($result["range"]["start"]) . "</code> to <code>" . htmlspecialchars($result["range"]["end"]) . "</code>" .
+        buildMonthEndTotalLine("UID", (int)$result["total_cached"], $result["range"])
+    );
+}
+
+function handleSyncRechargeCommand($chat_id) {
+    if (!isAdminChat($chat_id)) {
+        sendMessage($chat_id, "This command is only available for the bot admin.");
+        return;
+    }
+
+    sendMessage($chat_id, "⏳ Syncing successful recharge data from the panel. Please wait...");
+
+    $result = syncPanelRechargeOrders();
+
+    if (empty($result["ok"])) {
+        sendMessage(
+            $chat_id,
+            "❌ <b>RC sync failed.</b>\n\n" .
+            htmlspecialchars($result["error"] ?? "Unknown error") . "\n\n" .
+            "If you were logged out from the panel, paste the new bearer token into <code>private_bot/panel_token.txt</code> or <code>PANEL_BEARER_TOKEN</code> in config.php, then run <code>/syncrc</code> again."
+        );
+        return;
+    }
+
+    sendMessage(
+        $chat_id,
+        "✅ <b>RC sync completed.</b>\n\n" .
+        "New successful RC orders: <b>" . (int)$result["new"] . "</b>\n" .
+        "Updated RC orders: <b>" . (int)$result["updated"] . "</b>\n" .
+        "Rows seen: <b>" . (int)$result["seen"] . "</b>\n" .
+        "Success rows seen: <b>" . (int)$result["success_seen"] . "</b>\n" .
+        "Cached RC orders: <b>" . (int)$result["total_cached"] . "</b>\n" .
+        "Range: <code>" . htmlspecialchars($result["range"]["start"]) . "</code> to <code>" . htmlspecialchars($result["range"]["end"]) . "</code>" .
+        buildMonthEndTotalLine("RC", (int)$result["total_cached"], $result["range"])
     );
 }
 
@@ -1763,6 +2011,11 @@ if (isset($update["message"])) {
 
     if (preg_match('/^\/syncuid(?:@\w+)?$/i', $text)) {
         handleSyncUidCommand($chat_id);
+        exit;
+    }
+
+    if (preg_match('/^\/syncrc(?:@\w+)?$/i', $text)) {
+        handleSyncRechargeCommand($chat_id);
         exit;
     }
 
