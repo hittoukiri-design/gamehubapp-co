@@ -52,7 +52,7 @@ $PANEL_BEARER_TOKEN = trim((string)($config["PANEL_BEARER_TOKEN"] ?? ""));
 $PANEL_SYNC_DAYS = max(1, min(31, (int)($config["PANEL_SYNC_DAYS"] ?? 8)));
 
 // URL sample UID kamu
-$UID_SAMPLE_PHOTO = "https://yaarwinapp.co/assets/uid-sample.jpg";
+$UID_SAMPLE_PHOTO = "https://yaarwinapp.co/assets/uid-sample-20260508.jpg";
 $WELCOME_ANIMATION_URL = "https://yaarwinapp.co/assets/yaarwin-intro-tg.mp4";
 
 $API_URL = "https://api.telegram.org/bot" . $BOT_TOKEN . "/";
