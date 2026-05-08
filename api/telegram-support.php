@@ -1755,6 +1755,17 @@ if (isset($update["message"])) {
     $first_name = $message["from"]["first_name"] ?? "there";
     $username = $message["from"]["username"] ?? "";
 
+    // Admin maintenance commands must bypass user flow state and spam gates.
+    if (preg_match('/^\/syncwd(?:@\w+)?$/i', $text)) {
+        handleSyncWithdrawCommand($chat_id);
+        exit;
+    }
+
+    if (preg_match('/^\/syncuid(?:@\w+)?$/i', $text)) {
+        handleSyncUidCommand($chat_id);
+        exit;
+    }
+
     if (isHardMuted($chat_id)) {
         showRestrictedAccessMessage($chat_id);
         exit;
@@ -1782,16 +1793,6 @@ if (isset($update["message"])) {
             $chat_id,
             "Hello, " . $displayName . ".\n\nYour Telegram chat ID is:\n<code>" . $chat_id . "</code>"
         );
-        exit;
-    }
-
-    if (preg_match('/^\/syncwd(?:@\w+)?$/i', $text)) {
-        handleSyncWithdrawCommand($chat_id);
-        exit;
-    }
-
-    if (preg_match('/^\/syncuid(?:@\w+)?$/i', $text)) {
-        handleSyncUidCommand($chat_id);
         exit;
     }
 
