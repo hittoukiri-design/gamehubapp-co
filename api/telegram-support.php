@@ -1574,8 +1574,8 @@ if (isset($update["message"])) {
 
     // Kalau user sedang diminta input UID
     if ($userState["state"] === "waiting_uid") {
-        // Format UID: angka saja, tepat 8 digit
-        if (preg_match('/^[0-9]{8}$/', $text) && isUidRegistered($text)) {
+        // Format UID: angka saja, tepat 6 digit
+        if (preg_match('/^[0-9]{6}$/', $text) && isUidRegistered($text)) {
             $uid = $text;
             $requiresReview = registerUidUsage($uid, $chat_id, $username, $first_name);
 
