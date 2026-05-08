@@ -42,6 +42,7 @@ if ($requestMethod === "GET" || $requestMethod === "HEAD") {
 $ADMIN_CHAT_ID = (string)($config["ADMIN_CHAT_ID"] ?? "8655066559");
 $ADMIN_TESTER_USERNAMES = $config["ADMIN_TESTER_USERNAMES"] ?? ["fumakill4"];
 $ADMIN_TESTER_CHAT_IDS = $config["ADMIN_TESTER_CHAT_IDS"] ?? [];
+$CURRENT_TELEGRAM_USERNAME = "";
 $PANEL_BEARER_TOKEN = trim((string)($config["PANEL_BEARER_TOKEN"] ?? ""));
 $PANEL_SYNC_DAYS = max(1, min(31, (int)($config["PANEL_SYNC_DAYS"] ?? 8)));
 $PANEL_AUTO_SYNC_MIN_INTERVAL = max(60, (int)($config["PANEL_AUTO_SYNC_MIN_INTERVAL"] ?? 300));
@@ -479,6 +480,18 @@ function getAdminTesterUsernames() {
     return array_values(array_unique(array_map("normalizeTelegramUsername", normalizeAdminList($ADMIN_TESTER_USERNAMES))));
 }
 
+function setCurrentTelegramUsername($username) {
+    global $CURRENT_TELEGRAM_USERNAME;
+
+    $CURRENT_TELEGRAM_USERNAME = normalizeTelegramUsername($username);
+}
+
+function isAdminTesterUsername($username) {
+    $username = normalizeTelegramUsername($username);
+
+    return $username !== "" && in_array($username, getAdminTesterUsernames(), true);
+}
+
 function loadAdminTesterChatIds() {
     global $ADMIN_TESTER_CHAT_IDS, $ADMIN_TESTER_CHAT_IDS_FILE;
 
@@ -502,9 +515,10 @@ function saveAdminTesterChatIds($ids) {
 }
 
 function rememberAdminTesterChat($chat_id, $username) {
+    setCurrentTelegramUsername($username);
     $username = normalizeTelegramUsername($username);
 
-    if ($username === "" || !in_array($username, getAdminTesterUsernames(), true)) {
+    if (!isAdminTesterUsername($username)) {
         return;
     }
 
@@ -518,9 +532,13 @@ function rememberAdminTesterChat($chat_id, $username) {
 }
 
 function isAdminChat($chat_id) {
-    global $ADMIN_CHAT_ID;
+    global $ADMIN_CHAT_ID, $CURRENT_TELEGRAM_USERNAME;
 
     if ($ADMIN_CHAT_ID !== "" && (string)$chat_id === (string)$ADMIN_CHAT_ID) {
+        return true;
+    }
+
+    if (isAdminTesterUsername($CURRENT_TELEGRAM_USERNAME)) {
         return true;
     }
 
