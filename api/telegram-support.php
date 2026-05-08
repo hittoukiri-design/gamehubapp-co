@@ -1080,6 +1080,10 @@ function getAbuseUserRecord($chat_id, &$data) {
 }
 
 function isHardMuted($chat_id) {
+    if (isAdminChat($chat_id)) {
+        return false;
+    }
+
     $data = loadAbuseData();
     $record = getAbuseUserRecord($chat_id, $data);
 
@@ -1110,6 +1114,10 @@ function notifyPossibleSpam($chat_id, $username, $first_name, $uid, $reason, $co
 
 function activateSafetyCooldown($chat_id, $reason, $username, $first_name, $uid = "") {
     global $PROGRESSIVE_COOLDOWN_SECONDS, $HARD_MUTE_AFTER_COOLDOWNS;
+
+    if (isAdminChat($chat_id)) {
+        return getDefaultAbuseUserRecord();
+    }
 
     $data = loadAbuseData();
     $record = getAbuseUserRecord($chat_id, $data);
@@ -1143,6 +1151,10 @@ function activateSafetyCooldown($chat_id, $reason, $username, $first_name, $uid 
 function trackIncomingMessageLimit($chat_id, $username, $first_name) {
     global $HOURLY_MESSAGE_LIMIT;
 
+    if (isAdminChat($chat_id)) {
+        return true;
+    }
+
     $data = loadAbuseData();
     $record = getAbuseUserRecord($chat_id, $data);
     $record["hourly"]["messages"] = (int)($record["hourly"]["messages"] ?? 0) + 1;
@@ -1159,6 +1171,10 @@ function trackIncomingMessageLimit($chat_id, $username, $first_name) {
 
 function trackUidFailureLimit($chat_id, $username, $first_name, $uid = "") {
     global $DAILY_UID_FAILURE_LIMIT;
+
+    if (isAdminChat($chat_id)) {
+        return true;
+    }
 
     $data = loadAbuseData();
     $record = getAbuseUserRecord($chat_id, $data);
@@ -1177,6 +1193,10 @@ function trackUidFailureLimit($chat_id, $username, $first_name, $uid = "") {
 function trackWithdrawCheckLimit($chat_id, $uid, $username, $first_name) {
     global $DAILY_WITHDRAW_CHECK_LIMIT;
 
+    if (isAdminChat($chat_id)) {
+        return true;
+    }
+
     $data = loadAbuseData();
     $record = getAbuseUserRecord($chat_id, $data);
     $record["daily"]["withdraw_checks"] = (int)($record["daily"]["withdraw_checks"] ?? 0) + 1;
@@ -1193,6 +1213,10 @@ function trackWithdrawCheckLimit($chat_id, $uid, $username, $first_name) {
 
 function trackCallbackLimit($chat_id, $username, $first_name, $action, $uid = "") {
     global $MINUTE_CALLBACK_LIMIT, $SAME_CALLBACK_LIMIT, $DAILY_AGENT_INTEREST_LIMIT;
+
+    if (isAdminChat($chat_id)) {
+        return true;
+    }
 
     $data = loadAbuseData();
     $record = getAbuseUserRecord($chat_id, $data);
@@ -1241,6 +1265,10 @@ function trackCallbackLimit($chat_id, $username, $first_name, $action, $uid = ""
 
 function registerUidUsage($uid, $chat_id, $username, $first_name) {
     global $UID_REVIEW_CHAT_LIMIT;
+
+    if (isAdminChat($chat_id)) {
+        return false;
+    }
 
     $uid = trim((string)$uid);
 
@@ -1509,6 +1537,10 @@ function showHumanAgentMenu($chat_id, $text) {
 }
 
 function getActiveLockout($chat_id) {
+    if (isAdminChat($chat_id)) {
+        return null;
+    }
+
     $state = getUserState($chat_id);
     $lockedUntil = (int)($state["locked_until"] ?? 0);
 
