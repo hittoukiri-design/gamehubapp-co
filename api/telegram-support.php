@@ -64,6 +64,7 @@ $WITHDRAWAL_STATUS_FILE = $PRIVATE_BOT_DIR . "/withdrawal_status.json";
 $WITHDRAWAL_PANEL_FILE = $PRIVATE_BOT_DIR . "/withdraw_orders.json";
 $PANEL_TOKEN_FILE = $PRIVATE_BOT_DIR . "/panel_token.txt";
 $REGISTERED_UIDS_FILE = $PRIVATE_BOT_DIR . "/registered_uids.json";
+$PANEL_UID_MEMBERS_FILE = $PRIVATE_BOT_DIR . "/uid_members.json";
 $ABUSE_FILE = $PRIVATE_BOT_DIR . "/abuse_control.json";
 $LOCKOUT_SECONDS = 300;
 $MAX_FAILED_ATTEMPTS = 3;
@@ -156,6 +157,43 @@ function loadRegisteredUids() {
 
     $uids = readBotDataFile($REGISTERED_UIDS_FILE);
     return is_array($uids) ? $uids : [];
+}
+
+function saveRegisteredUids($uids) {
+    global $REGISTERED_UIDS_FILE;
+
+    $unique = [];
+
+    foreach ($uids as $key => $value) {
+        $uid = is_string($key) && $key !== "" && is_bool($value) ? $key : $value;
+        $uid = trim((string)$uid);
+
+        if ($uid !== "" && preg_match('/^[0-9]{4,12}$/', $uid)) {
+            $unique[$uid] = true;
+        }
+    }
+
+    $uidList = array_keys($unique);
+    sort($uidList, SORT_NATURAL);
+    writeBotDataFile($REGISTERED_UIDS_FILE, $uidList);
+}
+
+function loadPanelUidMembers() {
+    global $PANEL_UID_MEMBERS_FILE;
+
+    if (!file_exists($PANEL_UID_MEMBERS_FILE)) {
+        writeBotDataFile($PANEL_UID_MEMBERS_FILE, []);
+    }
+
+    $members = readBotDataFile($PANEL_UID_MEMBERS_FILE);
+    return is_array($members) ? $members : [];
+}
+
+function savePanelUidMembers($members) {
+    global $PANEL_UID_MEMBERS_FILE;
+
+    ksort($members, SORT_NATURAL);
+    writeBotDataFile($PANEL_UID_MEMBERS_FILE, $members);
 }
 
 function isUidRegistered($uid) {
@@ -502,6 +540,31 @@ function normalizePanelWithdrawalRow($row) {
     ];
 }
 
+function normalizePanelUidMemberRow($row) {
+    $uid = trim((string)($row["memberID"] ?? ""));
+
+    if ($uid === "" || !preg_match('/^[0-9]{4,12}$/', $uid)) {
+        return null;
+    }
+
+    return [
+        "uid" => $uid,
+        "nickname" => trim((string)($row["nickName"] ?? "")),
+        "registered_phone" => trim((string)($row["registeredPhoneNumber"] ?? "")),
+        "superior_id" => trim((string)($row["superiorID"] ?? "")),
+        "relative_level" => trim((string)($row["relativeLevel"] ?? "")),
+        "direct_downline_count" => trim((string)($row["directDownlineCount"] ?? "")),
+        "total_subordinates" => trim((string)($row["totalSubordinates"] ?? "")),
+        "registration_time" => trim((string)($row["registrationTime"] ?? "")),
+        "online_status" => trim((string)($row["onlineStatus"] ?? "")),
+        "register_device" => trim((string)($row["registerDevice"] ?? "")),
+        "user_activity_date" => trim((string)($row["userActivityDate"] ?? "")),
+        "recharge" => trim((string)($row["recharge"] ?? "")),
+        "withdraw" => trim((string)($row["withdraw"] ?? "")),
+        "synced_at" => date("c")
+    ];
+}
+
 function fetchPanelWithdrawPage($pageNo, $dateRange, &$error = "") {
     $token = getPanelBearerToken();
 
@@ -524,6 +587,65 @@ function fetchPanelWithdrawPage($pageNo, $dateRange, &$error = "") {
     $payload["timestamp"] = time();
 
     $ch = curl_init("https://agent.yaariosccwin.com/api/agent/GetWithDrawList");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Accept: application/json, text/plain, */*",
+        "Authorization: Bearer " . $token,
+        "Content-Type: application/problem+json; charset=UTF-8",
+        "Origin: https://agent.yaariosccwin.com",
+        "Referer: https://agent.yaariosccwin.com/"
+    ]);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+
+    $response = curl_exec($ch);
+    $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+    if (curl_errno($ch)) {
+        $error = "Panel request failed: " . curl_error($ch);
+        curl_close($ch);
+        return null;
+    }
+
+    curl_close($ch);
+
+    $decoded = json_decode($response, true);
+
+    if ($httpCode < 200 || $httpCode >= 300 || !is_array($decoded)) {
+        $error = "Panel returned HTTP " . $httpCode . ". Token may be expired.";
+        return null;
+    }
+
+    if (isset($decoded["code"]) && (int)$decoded["code"] !== 0) {
+        $error = "Panel rejected the request: " . ($decoded["msg"] ?? "unknown error");
+        return null;
+    }
+
+    return $decoded;
+}
+
+function fetchPanelUidPage($pageNo, $dateRange, &$error = "") {
+    $token = getPanelBearerToken();
+
+    if ($token === "") {
+        $error = "Panel bearer token is not configured.";
+        return null;
+    }
+
+    $payload = [
+        "pageNo" => (int)$pageNo,
+        "beginTime" => $dateRange["start"],
+        "endTime" => $dateRange["end"],
+        "language" => 0,
+        "random" => makePanelRandom(),
+        "upBeginTime" => $dateRange["start"],
+        "upEndTime" => $dateRange["end"]
+    ];
+    $payload["signature"] = signPanelPayload($payload);
+    $payload["timestamp"] = time();
+
+    $ch = curl_init("https://agent.yaariosccwin.com/api/agent/GetSubsetUserList");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -632,6 +754,89 @@ function syncPanelWithdrawalOrders() {
     ];
 }
 
+function syncPanelRegisteredUids() {
+    global $PANEL_SYNC_DAYS;
+
+    $dateRange = getPanelDateRange($PANEL_SYNC_DAYS);
+    $registeredUids = loadRegisteredUids();
+    $memberCache = loadPanelUidMembers();
+    $existing = [];
+    $newCount = 0;
+    $updatedCount = 0;
+    $seenCount = 0;
+    $totalPages = 1;
+
+    foreach ($registeredUids as $key => $value) {
+        $uid = is_string($key) && $key !== "" && is_bool($value) ? $key : $value;
+        $uid = trim((string)$uid);
+
+        if ($uid !== "") {
+            $existing[$uid] = true;
+        }
+    }
+
+    for ($pageNo = 1; $pageNo <= min($totalPages, 50); $pageNo++) {
+        $error = "";
+        $result = fetchPanelUidPage($pageNo, $dateRange, $error);
+
+        if (!$result) {
+            return [
+                "ok" => false,
+                "error" => $error,
+                "new" => $newCount,
+                "updated" => $updatedCount,
+                "total_cached" => count($existing),
+                "range" => $dateRange
+            ];
+        }
+
+        $data = $result["data"] ?? [];
+        $list = $data["list"] ?? [];
+        $totalPages = max(1, (int)($data["totalPage"] ?? 1));
+
+        foreach ($list as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $record = normalizePanelUidMemberRow($row);
+
+            if (!$record) {
+                continue;
+            }
+
+            $seenCount++;
+            $uid = $record["uid"];
+
+            if (empty($existing[$uid])) {
+                $newCount++;
+            } else {
+                $updatedCount++;
+            }
+
+            $existing[$uid] = true;
+            $memberCache[$uid] = $record;
+        }
+
+        if (count($list) === 0) {
+            break;
+        }
+    }
+
+    saveRegisteredUids(array_keys($existing));
+    savePanelUidMembers($memberCache);
+
+    return [
+        "ok" => true,
+        "new" => $newCount,
+        "updated" => $updatedCount,
+        "seen" => $seenCount,
+        "pages" => min($totalPages, 50),
+        "total_cached" => count($existing),
+        "range" => $dateRange
+    ];
+}
+
 function handleSyncWithdrawCommand($chat_id) {
     if (!isAdminChat($chat_id)) {
         sendMessage($chat_id, "This command is only available for the bot admin.");
@@ -659,6 +864,37 @@ function handleSyncWithdrawCommand($chat_id) {
         "Updated orders: <b>" . (int)$result["updated"] . "</b>\n" .
         "Rows seen: <b>" . (int)$result["seen"] . "</b>\n" .
         "Cached orders: <b>" . (int)$result["total_cached"] . "</b>\n" .
+        "Range: <code>" . htmlspecialchars($result["range"]["start"]) . "</code> to <code>" . htmlspecialchars($result["range"]["end"]) . "</code>"
+    );
+}
+
+function handleSyncUidCommand($chat_id) {
+    if (!isAdminChat($chat_id)) {
+        sendMessage($chat_id, "This command is only available for the bot admin.");
+        return;
+    }
+
+    sendMessage($chat_id, "⏳ Syncing registered UID data from the panel. Please wait...");
+
+    $result = syncPanelRegisteredUids();
+
+    if (empty($result["ok"])) {
+        sendMessage(
+            $chat_id,
+            "❌ <b>UID sync failed.</b>\n\n" .
+            htmlspecialchars($result["error"] ?? "Unknown error") . "\n\n" .
+            "If you were logged out from the panel, paste the new bearer token into <code>private_bot/panel_token.txt</code> or <code>PANEL_BEARER_TOKEN</code> in config.php, then run <code>/syncuid</code> again."
+        );
+        return;
+    }
+
+    sendMessage(
+        $chat_id,
+        "✅ <b>UID sync completed.</b>\n\n" .
+        "New UIDs: <b>" . (int)$result["new"] . "</b>\n" .
+        "Updated UIDs: <b>" . (int)$result["updated"] . "</b>\n" .
+        "Rows seen: <b>" . (int)$result["seen"] . "</b>\n" .
+        "Cached UIDs: <b>" . (int)$result["total_cached"] . "</b>\n" .
         "Range: <code>" . htmlspecialchars($result["range"]["start"]) . "</code> to <code>" . htmlspecialchars($result["range"]["end"]) . "</code>"
     );
 }
@@ -1519,6 +1755,11 @@ if (isset($update["message"])) {
 
     if (preg_match('/^\/syncwd(?:@\w+)?$/i', $text)) {
         handleSyncWithdrawCommand($chat_id);
+        exit;
+    }
+
+    if (preg_match('/^\/syncuid(?:@\w+)?$/i', $text)) {
+        handleSyncUidCommand($chat_id);
         exit;
     }
 
