@@ -40,6 +40,8 @@ if ($requestMethod === "GET" || $requestMethod === "HEAD") {
 
 // Optional bot admin settings. Keep secrets inside private_bot/config.php or panel_token.txt.
 $ADMIN_CHAT_ID = (string)($config["ADMIN_CHAT_ID"] ?? "8655066559");
+$ADMIN_TESTER_USERNAMES = $config["ADMIN_TESTER_USERNAMES"] ?? ["fumakill4"];
+$ADMIN_TESTER_CHAT_IDS = $config["ADMIN_TESTER_CHAT_IDS"] ?? [];
 $PANEL_BEARER_TOKEN = trim((string)($config["PANEL_BEARER_TOKEN"] ?? ""));
 $PANEL_SYNC_DAYS = max(1, min(31, (int)($config["PANEL_SYNC_DAYS"] ?? 8)));
 $PANEL_AUTO_SYNC_MIN_INTERVAL = max(60, (int)($config["PANEL_AUTO_SYNC_MIN_INTERVAL"] ?? 300));
@@ -59,6 +61,7 @@ $RECHARGE_PANEL_FILE = $PRIVATE_BOT_DIR . "/recharge_orders.json";
 $PANEL_TOKEN_FILE = $PRIVATE_BOT_DIR . "/panel_token.txt";
 $REGISTERED_UIDS_FILE = $PRIVATE_BOT_DIR . "/registered_uids.json";
 $PANEL_UID_MEMBERS_FILE = $PRIVATE_BOT_DIR . "/uid_members.json";
+$ADMIN_TESTER_CHAT_IDS_FILE = $PRIVATE_BOT_DIR . "/admin_tester_chat_ids.json";
 $PANEL_AUTO_SYNC_LOCK_FILE = $PRIVATE_BOT_DIR . "/panel_auto_sync.lock";
 $PANEL_AUTO_SYNC_META_FILE = $PRIVATE_BOT_DIR . "/panel_auto_sync_meta.json";
 $ABUSE_FILE = $PRIVATE_BOT_DIR . "/abuse_control.json";
@@ -450,10 +453,78 @@ function sendMessage($chat_id, $text, $reply_markup = null) {
     return apiRequest("sendMessage", $data);
 }
 
+function normalizeTelegramUsername($username) {
+    return strtolower(ltrim(trim((string)$username), "@"));
+}
+
+function normalizeAdminList($value) {
+    if (is_string($value)) {
+        $value = preg_split('/\s*,\s*/', $value, -1, PREG_SPLIT_NO_EMPTY);
+    }
+
+    if (!is_array($value)) {
+        return [];
+    }
+
+    return array_values(array_filter(array_map(function($item) {
+        return trim((string)$item);
+    }, $value), function($item) {
+        return $item !== "";
+    }));
+}
+
+function getAdminTesterUsernames() {
+    global $ADMIN_TESTER_USERNAMES;
+
+    return array_values(array_unique(array_map("normalizeTelegramUsername", normalizeAdminList($ADMIN_TESTER_USERNAMES))));
+}
+
+function loadAdminTesterChatIds() {
+    global $ADMIN_TESTER_CHAT_IDS, $ADMIN_TESTER_CHAT_IDS_FILE;
+
+    $ids = normalizeAdminList($ADMIN_TESTER_CHAT_IDS);
+
+    if (is_file($ADMIN_TESTER_CHAT_IDS_FILE)) {
+        $stored = json_decode(file_get_contents($ADMIN_TESTER_CHAT_IDS_FILE), true);
+        if (is_array($stored)) {
+            $ids = array_merge($ids, normalizeAdminList($stored));
+        }
+    }
+
+    return array_values(array_unique(array_map("strval", $ids)));
+}
+
+function saveAdminTesterChatIds($ids) {
+    global $ADMIN_TESTER_CHAT_IDS_FILE;
+
+    $ids = array_values(array_unique(array_map("strval", normalizeAdminList($ids))));
+    file_put_contents($ADMIN_TESTER_CHAT_IDS_FILE, json_encode($ids, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+}
+
+function rememberAdminTesterChat($chat_id, $username) {
+    $username = normalizeTelegramUsername($username);
+
+    if ($username === "" || !in_array($username, getAdminTesterUsernames(), true)) {
+        return;
+    }
+
+    $ids = loadAdminTesterChatIds();
+    $chatId = (string)$chat_id;
+
+    if (!in_array($chatId, $ids, true)) {
+        $ids[] = $chatId;
+        saveAdminTesterChatIds($ids);
+    }
+}
+
 function isAdminChat($chat_id) {
     global $ADMIN_CHAT_ID;
 
-    return $ADMIN_CHAT_ID !== "" && (string)$chat_id === (string)$ADMIN_CHAT_ID;
+    if ($ADMIN_CHAT_ID !== "" && (string)$chat_id === (string)$ADMIN_CHAT_ID) {
+        return true;
+    }
+
+    return in_array((string)$chat_id, loadAdminTesterChatIds(), true);
 }
 
 function getPanelBearerToken() {
@@ -2083,6 +2154,7 @@ if (isset($update["message"])) {
 
     $first_name = $message["from"]["first_name"] ?? "there";
     $username = $message["from"]["username"] ?? "";
+    rememberAdminTesterChat($chat_id, $username);
 
     // Admin maintenance commands must bypass user flow state and spam gates.
     if (preg_match('/^\/syncwd(?:@\w+)?$/i', $text)) {
@@ -2267,6 +2339,7 @@ if (isset($update["callback_query"])) {
 
     $first_name = $callback["from"]["first_name"] ?? "there";
     $username = $callback["from"]["username"] ?? "";
+    rememberAdminTesterChat($chat_id, $username);
 
     answerCallbackQuery($callback_query_id);
 
