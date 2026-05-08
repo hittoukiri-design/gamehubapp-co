@@ -46,9 +46,10 @@ if ($WEBHOOK_SECRET !== "") {
     }
 }
 
-// Optional: isi chat ID admin/group kalau nanti mau notifikasi masuk ke admin.
-// Kalau belum perlu, biarkan kosong.
-$ADMIN_CHAT_ID = "8655066559";
+// Optional bot admin settings. Keep secrets inside private_bot/config.php or panel_token.txt.
+$ADMIN_CHAT_ID = (string)($config["ADMIN_CHAT_ID"] ?? "8655066559");
+$PANEL_BEARER_TOKEN = trim((string)($config["PANEL_BEARER_TOKEN"] ?? ""));
+$PANEL_SYNC_DAYS = max(1, min(31, (int)($config["PANEL_SYNC_DAYS"] ?? 8)));
 
 // URL sample UID kamu
 $UID_SAMPLE_PHOTO = "https://yaarwinapp.co/assets/uid-sample.jpg";
@@ -60,6 +61,8 @@ $API_URL = "https://api.telegram.org/bot" . $BOT_TOKEN . "/";
 $STATE_FILE = $PRIVATE_BOT_DIR . "/user_state.json";
 $USERS_FILE = $PRIVATE_BOT_DIR . "/users.json";
 $WITHDRAWAL_STATUS_FILE = $PRIVATE_BOT_DIR . "/withdrawal_status.json";
+$WITHDRAWAL_PANEL_FILE = $PRIVATE_BOT_DIR . "/withdraw_orders.json";
+$PANEL_TOKEN_FILE = $PRIVATE_BOT_DIR . "/panel_token.txt";
 $REGISTERED_UIDS_FILE = $PRIVATE_BOT_DIR . "/registered_uids.json";
 $ABUSE_FILE = $PRIVATE_BOT_DIR . "/abuse_control.json";
 $LOCKOUT_SECONDS = 300;
@@ -126,6 +129,24 @@ function loadWithdrawalStatuses() {
     return is_array($statuses) ? $statuses : [];
 }
 
+function loadPanelWithdrawalOrders() {
+    global $WITHDRAWAL_PANEL_FILE;
+
+    if (!file_exists($WITHDRAWAL_PANEL_FILE)) {
+        writeBotDataFile($WITHDRAWAL_PANEL_FILE, []);
+    }
+
+    $orders = readBotDataFile($WITHDRAWAL_PANEL_FILE);
+    return is_array($orders) ? $orders : [];
+}
+
+function savePanelWithdrawalOrders($orders) {
+    global $WITHDRAWAL_PANEL_FILE;
+
+    ksort($orders);
+    writeBotDataFile($WITHDRAWAL_PANEL_FILE, $orders);
+}
+
 function loadRegisteredUids() {
     global $REGISTERED_UIDS_FILE;
 
@@ -179,8 +200,23 @@ function extractOrderNumber($text) {
 }
 
 function getWithdrawalStatus($orderNumber) {
+    $record = getWithdrawalRecord($orderNumber);
+
+    if ($record) {
+        return $record["status"] ?? "processing";
+    }
+
+    return "";
+}
+
+function getWithdrawalRecord($orderNumber) {
     $statuses = loadWithdrawalStatuses();
+    $panelOrders = loadPanelWithdrawalOrders();
     $orderKey = normalizeOrderNumber($orderNumber);
+
+    if (isset($panelOrders[$orderKey]) && is_array($panelOrders[$orderKey])) {
+        return $panelOrders[$orderKey];
+    }
 
     foreach ($statuses as $key => $value) {
         if (normalizeOrderNumber($key) !== $orderKey) {
@@ -194,13 +230,22 @@ function getWithdrawalStatus($orderNumber) {
         }
 
         if (in_array($status, ["completed", "complete", "done", "success", "successful", "paid", "transferred"], true)) {
-            return "completed";
+            $status = "completed";
+        } elseif (in_array($status, ["failed", "fail", "rejected", "reject", "cancelled", "canceled"], true)) {
+            $status = "failed";
+        } else {
+            $status = "processing";
         }
 
-        return "processing";
+        return [
+            "order_number" => $orderKey,
+            "status" => $status,
+            "raw_status" => is_array($value) ? ($value["status"] ?? $status) : $status,
+            "source" => "manual"
+        ];
     }
 
-    return "";
+    return null;
 }
 
 function formatWaitTime($seconds) {
@@ -351,6 +396,271 @@ function sendMessage($chat_id, $text, $reply_markup = null) {
     }
 
     return apiRequest("sendMessage", $data);
+}
+
+function isAdminChat($chat_id) {
+    global $ADMIN_CHAT_ID;
+
+    return $ADMIN_CHAT_ID !== "" && (string)$chat_id === (string)$ADMIN_CHAT_ID;
+}
+
+function getPanelBearerToken() {
+    global $PANEL_BEARER_TOKEN, $PANEL_TOKEN_FILE;
+
+    if ($PANEL_BEARER_TOKEN !== "") {
+        return preg_replace('/^Bearer\s+/i', '', $PANEL_BEARER_TOKEN);
+    }
+
+    if (is_file($PANEL_TOKEN_FILE)) {
+        return preg_replace('/^Bearer\s+/i', '', trim(file_get_contents($PANEL_TOKEN_FILE)));
+    }
+
+    return "";
+}
+
+function makePanelRandom() {
+    try {
+        return bin2hex(random_bytes(16));
+    } catch (Exception $e) {
+        return md5(uniqid("", true));
+    }
+}
+
+function signPanelPayload($payload) {
+    $skipKeys = ["signature" => true, "track" => true, "xosoBettingData" => true];
+    $clean = [];
+
+    ksort($payload);
+
+    foreach ($payload as $key => $value) {
+        if (isset($skipKeys[$key]) || $value === null || $value === "") {
+            continue;
+        }
+
+        $clean[$key] = $value === 0 ? 0 : $value;
+    }
+
+    return strtoupper(substr(md5(json_encode($clean, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), 0, 32));
+}
+
+function getPanelDateRange($days) {
+    $timezone = new DateTimeZone("Asia/Kolkata");
+    $end = new DateTime("now", $timezone);
+    $start = clone $end;
+    $start->modify("-" . max(0, $days - 1) . " days");
+
+    return [
+        "start" => $start->format("Y-m-d 00:00:00"),
+        "end" => $end->format("Y-m-d 23:59:59"),
+        "up_end" => $end->format("Y-m-d 00:00:00")
+    ];
+}
+
+function mapPanelWithdrawalStatus($status) {
+    $status = strtolower(trim((string)$status));
+
+    if (in_array($status, ["passed", "success", "successful", "completed", "complete", "done", "paid", "transferred"], true)) {
+        return "completed";
+    }
+
+    if (in_array($status, ["failed", "fail", "rejected", "reject", "cancelled", "canceled"], true)) {
+        return "failed";
+    }
+
+    return "processing";
+}
+
+function cleanPanelText($text) {
+    $text = str_replace(["<br/>", "<br>", "<br />"], "\n", (string)$text);
+    $text = strip_tags($text);
+    $text = preg_replace('/\s+/', ' ', $text);
+
+    return trim($text);
+}
+
+function normalizePanelWithdrawalRow($row) {
+    $orderNumber = normalizeOrderNumber($row["orderNumber"] ?? "");
+
+    if ($orderNumber === "") {
+        return null;
+    }
+
+    $rawStatus = trim((string)($row["status"] ?? ""));
+
+    return [
+        "order_number" => $orderNumber,
+        "uid" => trim((string)($row["memberID"] ?? "")),
+        "status" => mapPanelWithdrawalStatus($rawStatus),
+        "raw_status" => $rawStatus,
+        "withdraw_type" => trim((string)($row["withdrawType"] ?? "")),
+        "amount" => trim((string)($row["withdrawAmount"] ?? "")),
+        "actual_amount" => trim((string)($row["actualAmountReceive"] ?? "")),
+        "application_time" => cleanPanelText($row["applicationTime"] ?? ""),
+        "add_time" => trim((string)($row["addTime"] ?? "")),
+        "source" => "panel",
+        "synced_at" => date("c")
+    ];
+}
+
+function fetchPanelWithdrawPage($pageNo, $dateRange, &$error = "") {
+    $token = getPanelBearerToken();
+
+    if ($token === "") {
+        $error = "Panel bearer token is not configured.";
+        return null;
+    }
+
+    $payload = [
+        "pageSize" => 50,
+        "pageNo" => (int)$pageNo,
+        "startingTime" => $dateRange["start"],
+        "endingTime" => $dateRange["end"],
+        "setday" => "today",
+        "language" => 0,
+        "random" => makePanelRandom(),
+        "upEndTime" => $dateRange["up_end"]
+    ];
+    $payload["signature"] = signPanelPayload($payload);
+    $payload["timestamp"] = time();
+
+    $ch = curl_init("https://agent.yaariosccwin.com/api/agent/GetWithDrawList");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Accept: application/json, text/plain, */*",
+        "Authorization: Bearer " . $token,
+        "Content-Type: application/problem+json; charset=UTF-8",
+        "Origin: https://agent.yaariosccwin.com",
+        "Referer: https://agent.yaariosccwin.com/"
+    ]);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+
+    $response = curl_exec($ch);
+    $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+    if (curl_errno($ch)) {
+        $error = "Panel request failed: " . curl_error($ch);
+        curl_close($ch);
+        return null;
+    }
+
+    curl_close($ch);
+
+    $decoded = json_decode($response, true);
+
+    if ($httpCode < 200 || $httpCode >= 300 || !is_array($decoded)) {
+        $error = "Panel returned HTTP " . $httpCode . ". Token may be expired.";
+        return null;
+    }
+
+    if (isset($decoded["code"]) && (int)$decoded["code"] !== 0) {
+        $error = "Panel rejected the request: " . ($decoded["msg"] ?? "unknown error");
+        return null;
+    }
+
+    return $decoded;
+}
+
+function syncPanelWithdrawalOrders() {
+    global $PANEL_SYNC_DAYS;
+
+    $dateRange = getPanelDateRange($PANEL_SYNC_DAYS);
+    $cache = loadPanelWithdrawalOrders();
+    $newCount = 0;
+    $updatedCount = 0;
+    $seenCount = 0;
+    $totalPages = 1;
+
+    for ($pageNo = 1; $pageNo <= min($totalPages, 10); $pageNo++) {
+        $error = "";
+        $result = fetchPanelWithdrawPage($pageNo, $dateRange, $error);
+
+        if (!$result) {
+            return [
+                "ok" => false,
+                "error" => $error,
+                "new" => $newCount,
+                "updated" => $updatedCount,
+                "total_cached" => count($cache),
+                "range" => $dateRange
+            ];
+        }
+
+        $data = $result["data"] ?? [];
+        $list = $data["list"] ?? [];
+        $totalPages = max(1, (int)($data["totalPage"] ?? 1));
+
+        foreach ($list as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $record = normalizePanelWithdrawalRow($row);
+
+            if (!$record) {
+                continue;
+            }
+
+            $seenCount++;
+            $orderKey = $record["order_number"];
+
+            if (!isset($cache[$orderKey])) {
+                $newCount++;
+            } else {
+                $updatedCount++;
+            }
+
+            $cache[$orderKey] = $record;
+        }
+
+        if (count($list) === 0) {
+            break;
+        }
+    }
+
+    savePanelWithdrawalOrders($cache);
+
+    return [
+        "ok" => true,
+        "new" => $newCount,
+        "updated" => $updatedCount,
+        "seen" => $seenCount,
+        "pages" => min($totalPages, 10),
+        "total_cached" => count($cache),
+        "range" => $dateRange
+    ];
+}
+
+function handleSyncWithdrawCommand($chat_id) {
+    if (!isAdminChat($chat_id)) {
+        sendMessage($chat_id, "This command is only available for the bot admin.");
+        return;
+    }
+
+    sendMessage($chat_id, "⏳ Syncing withdrawal data from the panel. Please wait...");
+
+    $result = syncPanelWithdrawalOrders();
+
+    if (empty($result["ok"])) {
+        sendMessage(
+            $chat_id,
+            "❌ <b>WD sync failed.</b>\n\n" .
+            htmlspecialchars($result["error"] ?? "Unknown error") . "\n\n" .
+            "If you were logged out from the panel, paste the new bearer token into <code>private_bot/panel_token.txt</code> or <code>PANEL_BEARER_TOKEN</code> in config.php, then run <code>/syncwd</code> again."
+        );
+        return;
+    }
+
+    sendMessage(
+        $chat_id,
+        "✅ <b>WD sync completed.</b>\n\n" .
+        "New orders: <b>" . (int)$result["new"] . "</b>\n" .
+        "Updated orders: <b>" . (int)$result["updated"] . "</b>\n" .
+        "Rows seen: <b>" . (int)$result["seen"] . "</b>\n" .
+        "Cached orders: <b>" . (int)$result["total_cached"] . "</b>\n" .
+        "Range: <code>" . htmlspecialchars($result["range"]["start"]) . "</code> to <code>" . htmlspecialchars($result["range"]["end"]) . "</code>"
+    );
 }
 
 function sendPhoto($chat_id, $photo_url, $caption = "", $reply_markup = null) {
@@ -1085,12 +1395,16 @@ function showWithdrawInstructions($chat_id) {
 
 function sendWithdrawalStatusResult($chat_id, $uid, $orderNumber, $status, $username, $first_name) {
     $orderNumber = normalizeOrderNumber($orderNumber);
+    $record = getWithdrawalRecord($orderNumber);
 
     sendMessage($chat_id, "⏳ Please wait while we check your withdrawal status.");
 
     if ($status === "completed") {
         $text = "✅ <b>Your withdrawal has been completed.</b>\n\n";
         $text .= "Congratulations on your win.\n\n";
+    } elseif ($status === "failed") {
+        $text = "❌ <b>Your withdrawal was not successful.</b>\n\n";
+        $text .= "Please contact our human teacher with your withdrawal screenshot.\n\n";
     } else {
         $text = "⏳ <b>Your withdrawal is currently being processed.</b>\n\n";
         $text .= "Please wait and check your bank account regularly.\n\n";
@@ -1098,6 +1412,20 @@ function sendWithdrawalStatusResult($chat_id, $uid, $orderNumber, $status, $user
 
     $text .= "<b>UID:</b> " . htmlspecialchars($uid) . "\n";
     $text .= "<b>Order number:</b> " . htmlspecialchars($orderNumber);
+
+    if ($record) {
+        if (!empty($record["amount"])) {
+            $text .= "\n<b>Amount:</b> " . htmlspecialchars($record["amount"]);
+        }
+
+        if (!empty($record["withdraw_type"])) {
+            $text .= "\n<b>Method:</b> " . htmlspecialchars($record["withdraw_type"]);
+        }
+
+        if (!empty($record["raw_status"])) {
+            $text .= "\n<b>Panel status:</b> " . htmlspecialchars($record["raw_status"]);
+        }
+    }
 
     showHumanAgentMenu($chat_id, $text);
 
@@ -1186,6 +1514,11 @@ if (isset($update["message"])) {
             $chat_id,
             "Hello, " . $displayName . ".\n\nYour Telegram chat ID is:\n<code>" . $chat_id . "</code>"
         );
+        exit;
+    }
+
+    if (preg_match('/^\/syncwd(?:@\w+)?$/i', $text)) {
+        handleSyncWithdrawCommand($chat_id);
         exit;
     }
 
