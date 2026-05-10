@@ -17,6 +17,7 @@ yw_user_state_data.php
 *.zip
 *.tar
 *.tar.gz
+.visit-data/
 
 # OS/editor noise.
 .DS_Store

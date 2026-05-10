@@ -1635,6 +1635,45 @@ a.btn:hover,.btn:hover,.button:hover,.button.primary:hover,.btn-primary:hover,.c
   <section class="section"><div class="container"><div class="section-header"><div><h2>Latest YaarWin Updates</h2><p>Fresh login, registration bonus, app download and withdrawal guides for Indian users.</p></div><a class="button outline" href="/blog/">View all updates</a></div><div class="blog-grid"><article class="glass-card blog-card"><div class="blog-content"><h3>YaarWin Login India – Fast Mobile Access Guide</h3><p>Learn how YaarWin login works on mobile and what users should check before signing in.</p><a class="button primary" href="/blog/yaarwin-login-india/">Read guide</a></div></article><article class="glass-card blog-card"><div class="blog-content"><h3>YaarWin Register ₹500 Bonus – New User Guide</h3><p>A simple YaarWin registration experience for players looking for welcome bonus and mobile signup tips.</p><a class="button primary" href="https://yaarwin.org/#/register?invitationCode=72238107987">Read guide</a></div></article><article class="glass-card blog-card"><div class="blog-content"><h3>YaarWin App Download & UPI Withdrawal Guide</h3><p>Read how users can approach app access safely, understand UPI withdrawals and choose secure habits.</p><a class="button primary" href="/blog/yaarwin-app-download-upi-withdrawal/">Read guide</a></div></article><article class="glass-card blog-card"><div class="blog-content"><h3>RR vs GT Result IPL 2026 - Cricket Recap</h3><p>GT 229/4 beat RR by 77 runs. Read the YaarWin cricket betting India recap before the next IPL watchlist.</p><a class="button primary" href="/blog/rr-vs-gt-result-ipl-2026/">Read recap</a></div></article></div></div></section>
 </main>
 
+<style id="yw-admin-visits-css">
+.yw-admin-visits{display:none;background:#030503;border-top:1px solid rgba(105,231,139,.18);padding:28px 0}
+.yw-admin-visits.is-visible{display:block}
+.yw-admin-visits .admin-wrap{width:min(1180px,92%);margin:auto;background:linear-gradient(135deg,rgba(20,40,24,.98),rgba(5,10,6,.98));border:1px solid rgba(105,231,139,.26);border-radius:22px;padding:18px;box-shadow:0 18px 50px rgba(0,0,0,.28)}
+.yw-admin-visits .admin-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}
+.yw-admin-visits h2{margin:0;color:#fff;font-size:clamp(22px,3vw,32px);line-height:1.15}
+.yw-admin-visits p{margin:6px 0 0;color:#b9d3be;font-size:.94rem}
+.yw-admin-visits .admin-badge{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:7px 10px;background:rgba(35,197,82,.14);border:1px solid rgba(105,231,139,.28);color:#8ff0a3;font-weight:900;font-size:.76rem;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
+.yw-admin-visits .admin-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.yw-admin-visits .admin-card{border-radius:16px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09);padding:14px;min-height:92px}
+.yw-admin-visits .admin-card span{display:block;color:#99b5a0;font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.yw-admin-visits .admin-card strong{display:block;margin-top:8px;color:#fff;font-size:clamp(24px,4vw,38px);line-height:1}
+.yw-admin-visits .admin-pages{margin-top:12px;border-top:1px solid rgba(255,255,255,.09);padding-top:12px;color:#cde3d1;font-size:.9rem}
+.yw-admin-visits .admin-pages b{color:#fff}
+@media(max-width:760px){.yw-admin-visits{padding:20px 0}.yw-admin-visits .admin-wrap{padding:14px;border-radius:18px}.yw-admin-visits .admin-top{display:block}.yw-admin-visits .admin-badge{margin-top:10px}.yw-admin-visits .admin-grid{grid-template-columns:repeat(2,1fr);gap:8px}.yw-admin-visits .admin-card{min-height:82px;padding:12px}.yw-admin-visits .admin-card strong{font-size:25px}}
+</style>
+<section class="yw-admin-visits" id="yw-admin-visits" hidden aria-label="YaarWin admin visit counter">
+  <div class="admin-wrap">
+    <div class="admin-top">
+      <div>
+        <h2>YaarWin Page Visit Counter</h2>
+        <p>Admin-only view. Public visitors cannot see this panel and admin visits are not counted.</p>
+      </div>
+      <span class="admin-badge">Admin view</span>
+    </div>
+    <div class="admin-grid">
+      <div class="admin-card"><span>Total page visits</span><strong data-yw-visit-total>--</strong></div>
+      <div class="admin-card"><span>Unique visitors</span><strong data-yw-visit-unique>--</strong></div>
+      <div class="admin-card"><span>Today visits</span><strong data-yw-visit-today>--</strong></div>
+      <div class="admin-card"><span>Today unique</span><strong data-yw-visit-today-unique>--</strong></div>
+      <div class="admin-card"><span>Mobile visits</span><strong data-yw-visit-mobile>--</strong></div>
+      <div class="admin-card"><span>Desktop visits</span><strong data-yw-visit-desktop>--</strong></div>
+      <div class="admin-card"><span>Today mobile</span><strong data-yw-visit-today-mobile>--</strong></div>
+      <div class="admin-card"><span>Today desktop</span><strong data-yw-visit-today-desktop>--</strong></div>
+    </div>
+    <div class="admin-pages" data-yw-visit-pages>Top pages: loading...</div>
+  </div>
+</section>
+
 <footer class="footer">
   <div class="container">
     <div class="footer-grid">
@@ -1753,6 +1792,107 @@ a.btn:hover,.btn:hover,.button:hover,.button.primary:hover,.btn-primary:hover,.c
   .hero p.lead{max-width:340px!important;margin-left:auto!important;margin-right:auto!important;font-size:.88rem!important;line-height:1.48!important;overflow-wrap:break-word!important}
 }
 </style>
+
+<script id="yw-page-visit-counter-js">
+(function(){
+  var adminKey = 'yaarwinappco';
+  var params = new URLSearchParams(window.location.search);
+  var adminMode = params.has(adminKey) || /^\/yaarwinappco=1\/?$/.test(window.location.pathname);
+  var endpoint = '/api/page-visit-counter.php';
+  var storageKey = 'yw_visit_id';
+
+  if (adminMode) {
+    try { localStorage.setItem('yw_admin_visit_view', '1'); } catch(e) {}
+  }
+
+  function deviceType(){
+    return window.matchMedia && window.matchMedia('(max-width: 760px)').matches ? 'mobile' : 'desktop';
+  }
+
+  function visitorId(){
+    try {
+      var id = localStorage.getItem(storageKey);
+      if (!id) {
+        id = 'v-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+        localStorage.setItem(storageKey, id);
+      }
+      return id;
+    } catch(e) {
+      return 'v-' + Math.random().toString(36).slice(2, 14);
+    }
+  }
+
+  function postVisit(){
+    var payload = JSON.stringify({
+      mode: 'track',
+      key: adminMode ? adminKey : '',
+      path: window.location.pathname || '/',
+      device: deviceType(),
+      visitorId: visitorId()
+    });
+
+    if (navigator.sendBeacon && !adminMode) {
+      var blob = new Blob([payload], {type: 'application/json'});
+      navigator.sendBeacon(endpoint, blob);
+      return;
+    }
+
+    fetch(endpoint, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: payload,
+      keepalive: true,
+      credentials: 'same-origin'
+    }).catch(function(){});
+  }
+
+  function numberText(value){
+    value = Number(value || 0);
+    return value.toLocaleString('en-IN');
+  }
+
+  function setText(selector, value){
+    var el = document.querySelector(selector);
+    if (el) el.textContent = numberText(value);
+  }
+
+  function loadStats(){
+    var panel = document.getElementById('yw-admin-visits');
+    if (!panel || !adminMode) return;
+    panel.hidden = false;
+    panel.classList.add('is-visible');
+
+    fetch(endpoint + '?mode=stats&key=' + encodeURIComponent(adminKey), {
+      credentials: 'same-origin',
+      cache: 'no-store'
+    }).then(function(response){ return response.json(); }).then(function(data){
+      if (!data || !data.ok || !data.stats) return;
+      var s = data.stats;
+      setText('[data-yw-visit-total]', s.pageviews);
+      setText('[data-yw-visit-unique]', s.uniqueVisitors);
+      setText('[data-yw-visit-today]', s.todayPageviews);
+      setText('[data-yw-visit-today-unique]', s.todayUniqueVisitors);
+      setText('[data-yw-visit-mobile]', s.mobile);
+      setText('[data-yw-visit-desktop]', s.desktop);
+      setText('[data-yw-visit-today-mobile]', s.todayMobile);
+      setText('[data-yw-visit-today-desktop]', s.todayDesktop);
+      var pages = s.topPages || {};
+      var rows = Object.keys(pages).slice(0, 5).map(function(path){
+        return '<b>' + path.replace(/[<>&"]/g, '') + '</b> (' + numberText(pages[path]) + ')';
+      });
+      var pagesEl = document.querySelector('[data-yw-visit-pages]');
+      if (pagesEl) pagesEl.innerHTML = rows.length ? 'Top pages: ' + rows.join(' &middot; ') : 'Top pages: no data yet';
+    }).catch(function(){});
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ postVisit(); loadStats(); });
+  } else {
+    postVisit();
+    loadStats();
+  }
+})();
+</script>
 
 
 </body></html>
