@@ -1649,6 +1649,8 @@ a.btn:hover,.btn:hover,.button:hover,.button.primary:hover,.btn-primary:hover,.c
 .yw-admin-visits .admin-card strong{display:block;margin-top:8px;color:#fff;font-size:clamp(24px,4vw,38px);line-height:1}
 .yw-admin-visits .admin-pages{margin-top:12px;border-top:1px solid rgba(255,255,255,.09);padding-top:12px;color:#cde3d1;font-size:.9rem}
 .yw-admin-visits .admin-pages b{color:#fff}
+.yw-admin-jump{position:fixed;left:16px;bottom:18px;z-index:9998;display:none;align-items:center;gap:8px;border:1px solid rgba(105,231,139,.3);border-radius:999px;background:rgba(3,10,5,.92);color:#fff;text-decoration:none;font-weight:900;padding:11px 14px;box-shadow:0 16px 38px rgba(0,0,0,.34)}
+.yw-admin-jump.is-visible{display:inline-flex}
 @media(max-width:760px){.yw-admin-visits{padding:20px 0}.yw-admin-visits .admin-wrap{padding:14px;border-radius:18px}.yw-admin-visits .admin-top{display:block}.yw-admin-visits .admin-badge{margin-top:10px}.yw-admin-visits .admin-grid{grid-template-columns:repeat(2,1fr);gap:8px}.yw-admin-visits .admin-card{min-height:82px;padding:12px}.yw-admin-visits .admin-card strong{font-size:25px}}
 </style>
 <section class="yw-admin-visits" id="yw-admin-visits" hidden aria-label="YaarWin admin visit counter">
@@ -1673,6 +1675,7 @@ a.btn:hover,.btn:hover,.button:hover,.button.primary:hover,.btn-primary:hover,.c
     <div class="admin-pages" data-yw-visit-pages>Top pages: loading...</div>
   </div>
 </section>
+<a class="yw-admin-jump" href="#yw-admin-visits" id="yw-admin-jump">View visit stats</a>
 
 <footer class="footer">
   <div class="container">
@@ -1860,8 +1863,11 @@ a.btn:hover,.btn:hover,.button:hover,.button.primary:hover,.btn-primary:hover,.c
   function loadStats(){
     var panel = document.getElementById('yw-admin-visits');
     if (!panel || !adminMode) return;
+    var jump = document.getElementById('yw-admin-jump');
     panel.hidden = false;
     panel.classList.add('is-visible');
+    if (jump) jump.classList.add('is-visible');
+    setTimeout(function(){ panel.scrollIntoView({behavior: 'smooth', block: 'start'}); }, 350);
 
     fetch(endpoint + '?mode=stats&key=' + encodeURIComponent(adminKey) + '&' + endpointVersion, {
       credentials: 'same-origin',
