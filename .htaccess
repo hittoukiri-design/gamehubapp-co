@@ -16,6 +16,10 @@ DirectoryIndex index.html index.php default.php
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Frame-Options "SAMEORIGIN"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  <FilesMatch "^page-visit-counter\.php$">
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header always set Pragma "no-cache"
+  </FilesMatch>
 </IfModule>
 
 <IfModule mod_rewrite.c>

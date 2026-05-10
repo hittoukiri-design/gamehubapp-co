@@ -1799,6 +1799,7 @@ a.btn:hover,.btn:hover,.button:hover,.button.primary:hover,.btn-primary:hover,.c
   var params = new URLSearchParams(window.location.search);
   var adminMode = params.has(adminKey) || /^\/yaarwinappco=1\/?$/.test(window.location.pathname);
   var endpoint = '/api/page-visit-counter.php';
+  var endpointVersion = 'v=20260510a';
   var storageKey = 'yw_visit_id';
 
   if (adminMode) {
@@ -1833,11 +1834,11 @@ a.btn:hover,.btn:hover,.button:hover,.button.primary:hover,.btn-primary:hover,.c
 
     if (navigator.sendBeacon && !adminMode) {
       var blob = new Blob([payload], {type: 'application/json'});
-      navigator.sendBeacon(endpoint, blob);
+      navigator.sendBeacon(endpoint + '?' + endpointVersion, blob);
       return;
     }
 
-    fetch(endpoint, {
+    fetch(endpoint + '?' + endpointVersion, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: payload,
@@ -1862,7 +1863,7 @@ a.btn:hover,.btn:hover,.button:hover,.button.primary:hover,.btn-primary:hover,.c
     panel.hidden = false;
     panel.classList.add('is-visible');
 
-    fetch(endpoint + '?mode=stats&key=' + encodeURIComponent(adminKey), {
+    fetch(endpoint + '?mode=stats&key=' + encodeURIComponent(adminKey) + '&' + endpointVersion, {
       credentials: 'same-origin',
       cache: 'no-store'
     }).then(function(response){ return response.json(); }).then(function(data){
