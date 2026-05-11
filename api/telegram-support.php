@@ -548,12 +548,16 @@ function isAdminChat($chat_id) {
 function getPanelBearerToken() {
     global $PANEL_BEARER_TOKEN, $PANEL_TOKEN_FILE;
 
-    if ($PANEL_BEARER_TOKEN !== "") {
-        return preg_replace('/^Bearer\s+/i', '', $PANEL_BEARER_TOKEN);
+    if (is_file($PANEL_TOKEN_FILE)) {
+        $fileToken = trim(file_get_contents($PANEL_TOKEN_FILE));
+
+        if ($fileToken !== "") {
+            return preg_replace('/^Bearer\s+/i', '', $fileToken);
+        }
     }
 
-    if (is_file($PANEL_TOKEN_FILE)) {
-        return preg_replace('/^Bearer\s+/i', '', trim(file_get_contents($PANEL_TOKEN_FILE)));
+    if ($PANEL_BEARER_TOKEN !== "") {
+        return preg_replace('/^Bearer\s+/i', '', $PANEL_BEARER_TOKEN);
     }
 
     return "";
