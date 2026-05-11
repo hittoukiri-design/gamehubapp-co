@@ -31,8 +31,19 @@ function visitor_default_data(string $today): array
             'uniqueVisitors' => 0,
             'mobile' => 0,
             'desktop' => 0,
+            'adVisits' => 0,
+            'adSources' => [],
+            'adCampaigns' => [],
+            'adTerms' => [],
             'visitors' => [],
         ],
+        'adVisits' => 0,
+        'adSources' => [],
+        'adCampaigns' => [],
+        'adTerms' => [],
+        'adDevices' => [],
+        'adNetworks' => [],
+        'lastAdVisitAt' => null,
         'pages' => [],
         'visitors' => [],
         'lastVisitAt' => null,
@@ -81,6 +92,22 @@ function visitor_safe_path(?string $path): string
     return strlen($path) > 140 ? substr($path, 0, 140) : $path;
 }
 
+function visitor_safe_label(?string $value, string $fallback = 'unknown'): string
+{
+    $value = trim((string) $value);
+    if ($value === '') {
+        return $fallback;
+    }
+
+    $value = preg_replace('/[^a-zA-Z0-9 _.\-:|]/', '', $value) ?: $fallback;
+    return strlen($value) > 90 ? substr($value, 0, 90) : $value;
+}
+
+function visitor_increment_map(array &$map, string $key): void
+{
+    $map[$key] = (int)($map[$key] ?? 0) + 1;
+}
+
 function visitor_trim_maps(array &$data): void
 {
     if (count($data['visitors']) > 8000) {
@@ -91,6 +118,16 @@ function visitor_trim_maps(array &$data): void
     if (count($data['pages']) > 80) {
         arsort($data['pages']);
         $data['pages'] = array_slice($data['pages'], 0, 80, true);
+    }
+
+    foreach (['adSources', 'adCampaigns', 'adTerms', 'adDevices', 'adNetworks'] as $key) {
+        if (!isset($data[$key]) || !is_array($data[$key])) {
+            $data[$key] = [];
+        }
+        if (count($data[$key]) > 60) {
+            arsort($data[$key]);
+            $data[$key] = array_slice($data[$key], 0, 60, true);
+        }
     }
 }
 
@@ -124,6 +161,18 @@ $data += visitor_default_data($today);
 if (($data['today']['date'] ?? '') !== $today) {
     $data['today'] = visitor_default_data($today)['today'];
 }
+foreach (['adSources', 'adCampaigns', 'adTerms', 'adDevices', 'adNetworks'] as $key) {
+    if (!isset($data[$key]) || !is_array($data[$key])) {
+        $data[$key] = [];
+    }
+}
+foreach (['adSources', 'adCampaigns', 'adTerms'] as $key) {
+    if (!isset($data['today'][$key]) || !is_array($data['today'][$key])) {
+        $data['today'][$key] = [];
+    }
+}
+$data['adVisits'] = (int)($data['adVisits'] ?? 0);
+$data['today']['adVisits'] = (int)($data['today']['adVisits'] ?? 0);
 
 if ($mode === 'stats') {
     if (!$isAdmin) {
@@ -149,6 +198,16 @@ if ($mode === 'stats') {
             'todayDesktop' => (int) ($data['today']['desktop'] ?? 0),
             'lastVisitAt' => $data['lastVisitAt'],
             'topPages' => array_slice($topPages, 0, 5, true),
+            'ads' => [
+                'adVisits' => (int)($data['adVisits'] ?? 0),
+                'todayAdVisits' => (int)($data['today']['adVisits'] ?? 0),
+                'sources' => array_slice($data['adSources'] ?? [], 0, 5, true),
+                'campaigns' => array_slice($data['adCampaigns'] ?? [], 0, 5, true),
+                'terms' => array_slice($data['adTerms'] ?? [], 0, 5, true),
+                'devices' => array_slice($data['adDevices'] ?? [], 0, 5, true),
+                'networks' => array_slice($data['adNetworks'] ?? [], 0, 5, true),
+                'lastAdVisitAt' => $data['lastAdVisitAt'] ?? null,
+            ],
         ],
     ];
 
@@ -186,6 +245,35 @@ $data['today']['pageviews'] = (int)($data['today']['pageviews'] ?? 0) + 1;
 $data['today'][$device] = (int)($data['today'][$device] ?? 0) + 1;
 $data['pages'][$path] = (int)($data['pages'][$path] ?? 0) + 1;
 $data['lastVisitAt'] = $now;
+
+$ads = is_array($input['ads'] ?? null) ? $input['ads'] : [];
+$hasAdSignal = false;
+foreach (['source', 'medium', 'campaign', 'term', 'content', 'gclid', 'device', 'matchtype', 'network'] as $adKey) {
+    if (trim((string)($ads[$adKey] ?? '')) !== '') {
+        $hasAdSignal = true;
+        break;
+    }
+}
+
+if ($hasAdSignal) {
+    $source = visitor_safe_label(($ads['source'] ?? '') . ' | ' . ($ads['medium'] ?? ''), 'direct_ad');
+    $campaign = visitor_safe_label($ads['campaign'] ?? '', 'campaign_unknown');
+    $term = visitor_safe_label($ads['term'] ?? '', 'keyword_unknown');
+    $adDevice = visitor_safe_label($ads['device'] ?? $device, $device);
+    $network = visitor_safe_label($ads['network'] ?? '', 'network_unknown');
+
+    $data['adVisits'] = (int)($data['adVisits'] ?? 0) + 1;
+    $data['today']['adVisits'] = (int)($data['today']['adVisits'] ?? 0) + 1;
+    visitor_increment_map($data['adSources'], $source);
+    visitor_increment_map($data['adCampaigns'], $campaign);
+    visitor_increment_map($data['adTerms'], $term);
+    visitor_increment_map($data['adDevices'], $adDevice);
+    visitor_increment_map($data['adNetworks'], $network);
+    visitor_increment_map($data['today']['adSources'], $source);
+    visitor_increment_map($data['today']['adCampaigns'], $campaign);
+    visitor_increment_map($data['today']['adTerms'], $term);
+    $data['lastAdVisitAt'] = $now;
+}
 
 if ($isNewVisitor) {
     $data['uniqueVisitors']++;

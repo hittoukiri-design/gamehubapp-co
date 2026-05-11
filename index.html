@@ -1655,8 +1655,12 @@ a.btn:hover,.btn:hover,.button:hover,.button.primary:hover,.btn-primary:hover,.c
 .yw-admin-visits .admin-card{border-radius:16px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09);padding:14px;min-height:92px}
 .yw-admin-visits .admin-card span{display:block;color:#99b5a0;font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
 .yw-admin-visits .admin-card strong{display:block;margin-top:8px;color:#fff;font-size:clamp(24px,4vw,38px);line-height:1}
+.yw-admin-visits .admin-card strong[data-yw-ad-campaign],.yw-admin-visits .admin-card strong[data-yw-ad-term]{font-size:clamp(16px,2vw,22px);line-height:1.2;overflow-wrap:anywhere}
 .yw-admin-visits .admin-pages{margin-top:12px;border-top:1px solid rgba(255,255,255,.09);padding-top:12px;color:#cde3d1;font-size:.9rem}
 .yw-admin-visits .admin-pages b{color:#fff}
+.yw-admin-visits .admin-ads{margin-top:12px;border-top:1px solid rgba(255,255,255,.09);padding-top:12px;color:#cde3d1;font-size:.9rem;display:grid;gap:8px}
+.yw-admin-visits .admin-ads div{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);border-radius:12px;padding:10px}
+.yw-admin-visits .admin-ads b{color:#fff}
 .yw-admin-jump{position:fixed;left:16px;bottom:18px;z-index:9998;display:none;align-items:center;gap:8px;border:1px solid rgba(105,231,139,.3);border-radius:999px;background:rgba(3,10,5,.92);color:#fff;text-decoration:none;font-weight:900;padding:11px 14px;box-shadow:0 16px 38px rgba(0,0,0,.34)}
 .yw-admin-jump.is-visible{display:inline-flex}
 @media(max-width:760px){.yw-admin-visits{padding:20px 0}.yw-admin-visits .admin-wrap{padding:14px;border-radius:18px}.yw-admin-visits .admin-top{display:block}.yw-admin-visits .admin-badge{margin-top:10px}.yw-admin-visits .admin-grid{grid-template-columns:repeat(2,1fr);gap:8px}.yw-admin-visits .admin-card{min-height:82px;padding:12px}.yw-admin-visits .admin-card strong{font-size:25px}}
@@ -1679,8 +1683,15 @@ a.btn:hover,.btn:hover,.button:hover,.button.primary:hover,.btn-primary:hover,.c
       <div class="admin-card"><span>Desktop visits</span><strong data-yw-visit-desktop>--</strong></div>
       <div class="admin-card"><span>Today mobile</span><strong data-yw-visit-today-mobile>--</strong></div>
       <div class="admin-card"><span>Today desktop</span><strong data-yw-visit-today-desktop>--</strong></div>
+      <div class="admin-card"><span>Ad tracked visits</span><strong data-yw-ad-total>--</strong></div>
+      <div class="admin-card"><span>Today ad visits</span><strong data-yw-ad-today>--</strong></div>
+      <div class="admin-card"><span>Top campaign</span><strong data-yw-ad-campaign>--</strong></div>
+      <div class="admin-card"><span>Top keyword</span><strong data-yw-ad-term>--</strong></div>
     </div>
     <div class="admin-pages" data-yw-visit-pages>Top pages: loading...</div>
+    <div class="admin-ads" data-yw-ad-breakdown>
+      <div><b>Google Ads / UTM:</b> loading...</div>
+    </div>
   </div>
 </section>
 <a class="yw-admin-jump" href="#yw-admin-visits" id="yw-admin-jump">View visit stats</a>
@@ -1810,7 +1821,7 @@ a.btn:hover,.btn:hover,.button:hover,.button.primary:hover,.btn-primary:hover,.c
   var params = new URLSearchParams(window.location.search);
   var adminMode = params.has(adminKey) || /^\/yaarwinappco=1\/?$/.test(window.location.pathname);
   var endpoint = '/api/page-visit-counter.php';
-  var endpointVersion = 'v=20260510a';
+  var endpointVersion = 'v=20260511a';
   var storageKey = 'yw_visit_id';
 
   if (adminMode) {
@@ -1834,14 +1845,37 @@ a.btn:hover,.btn:hover,.button:hover,.button.primary:hover,.btn-primary:hover,.c
     }
   }
 
+  function cleanText(value){
+    return String(value || '').replace(/[<>&"]/g, '').slice(0, 90);
+  }
+
+  function adParams(){
+    var data = {
+      source: params.get('utm_source') || '',
+      medium: params.get('utm_medium') || '',
+      campaign: params.get('utm_campaign') || '',
+      term: params.get('utm_term') || '',
+      content: params.get('utm_content') || '',
+      gclid: params.get('gclid') || '',
+      device: params.get('device') || '',
+      matchtype: params.get('matchtype') || '',
+      network: params.get('network') || ''
+    };
+    var hasAny = Object.keys(data).some(function(key){ return data[key]; });
+    return hasAny ? data : null;
+  }
+
   function postVisit(){
-    var payload = JSON.stringify({
+    var visit = {
       mode: 'track',
       key: adminMode ? adminKey : '',
       path: window.location.pathname || '/',
       device: deviceType(),
       visitorId: visitorId()
-    });
+    };
+    var ads = adParams();
+    if (ads) visit.ads = ads;
+    var payload = JSON.stringify(visit);
 
     if (navigator.sendBeacon && !adminMode) {
       var blob = new Blob([payload], {type: 'application/json'});
@@ -1868,6 +1902,27 @@ a.btn:hover,.btn:hover,.button:hover,.button.primary:hover,.btn-primary:hover,.c
     if (el) el.textContent = numberText(value);
   }
 
+  function setRawText(selector, value){
+    var el = document.querySelector(selector);
+    if (el) el.textContent = value || '--';
+  }
+
+  function topEntry(map){
+    map = map || {};
+    var keys = Object.keys(map);
+    if (!keys.length) return null;
+    keys.sort(function(a, b){ return Number(map[b] || 0) - Number(map[a] || 0); });
+    return {name: keys[0], count: map[keys[0]]};
+  }
+
+  function renderMap(title, map){
+    var keys = Object.keys(map || {}).slice(0, 5);
+    if (!keys.length) return '<div><b>' + title + ':</b> no data yet</div>';
+    return '<div><b>' + title + ':</b> ' + keys.map(function(key){
+      return cleanText(key) + ' (' + numberText(map[key]) + ')';
+    }).join(' &middot; ') + '</div>';
+  }
+
   function loadStats(){
     var panel = document.getElementById('yw-admin-visits');
     if (!panel || !adminMode) return;
@@ -1891,12 +1946,29 @@ a.btn:hover,.btn:hover,.button:hover,.button.primary:hover,.btn-primary:hover,.c
       setText('[data-yw-visit-desktop]', s.desktop);
       setText('[data-yw-visit-today-mobile]', s.todayMobile);
       setText('[data-yw-visit-today-desktop]', s.todayDesktop);
+      var ads = s.ads || {};
+      setText('[data-yw-ad-total]', ads.adVisits);
+      setText('[data-yw-ad-today]', ads.todayAdVisits);
+      var campaign = topEntry(ads.campaigns);
+      var term = topEntry(ads.terms);
+      setRawText('[data-yw-ad-campaign]', campaign ? cleanText(campaign.name) : '--');
+      setRawText('[data-yw-ad-term]', term ? cleanText(term.name) : '--');
       var pages = s.topPages || {};
       var rows = Object.keys(pages).slice(0, 5).map(function(path){
-        return '<b>' + path.replace(/[<>&"]/g, '') + '</b> (' + numberText(pages[path]) + ')';
+        return '<b>' + cleanText(path) + '</b> (' + numberText(pages[path]) + ')';
       });
       var pagesEl = document.querySelector('[data-yw-visit-pages]');
       if (pagesEl) pagesEl.innerHTML = rows.length ? 'Top pages: ' + rows.join(' &middot; ') : 'Top pages: no data yet';
+      var adEl = document.querySelector('[data-yw-ad-breakdown]');
+      if (adEl) {
+        adEl.innerHTML = [
+          renderMap('Sources', ads.sources || {}),
+          renderMap('Campaigns', ads.campaigns || {}),
+          renderMap('Keywords', ads.terms || {}),
+          renderMap('Devices', ads.devices || {}),
+          renderMap('Networks', ads.networks || {})
+        ].join('');
+      }
     }).catch(function(){});
   }
 
