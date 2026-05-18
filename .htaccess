@@ -17,9 +17,12 @@ DirectoryIndex index.html index.php default.php
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Frame-Options "SAMEORIGIN"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
-  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
   Header always set Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
   Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"
+  Header always set X-DNS-Prefetch-Control "off"
+  Header always set X-Download-Options "noopen"
+  Header always set X-Permitted-Cross-Domain-Policies "none"
   Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self' https://yaarwin.org; img-src 'self' data: https:; font-src 'self' data: https:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://static.cloudflareinsights.com; connect-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://googleads.g.doubleclick.net https://static.cloudflareinsights.com https://api.telegram.org; frame-src 'self' https://www.googletagmanager.com https://td.doubleclick.net; upgrade-insecure-requests"
   <FilesMatch "^page-visit-counter\.php$">
     Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
