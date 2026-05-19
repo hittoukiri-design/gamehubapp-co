@@ -49,10 +49,9 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          codex --search exec \
+          codex --search --ask-for-approval never exec \
             --model gpt-5.3-codex \
             --sandbox workspace-write \
-            --ask-for-approval never \
             --cd "$GITHUB_WORKSPACE" \
             --output-last-message "$RUNNER_TEMP/codex-cricket-summary.txt" \
             - < .github/prompts/daily-cricket-update.md
