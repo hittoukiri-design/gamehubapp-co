@@ -49,8 +49,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          codex exec \
-            --search \
+          codex --search exec \
             --model gpt-5.3-codex \
             --sandbox workspace-write \
             --ask-for-approval never \
