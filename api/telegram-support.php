@@ -78,6 +78,8 @@ $SAME_CALLBACK_LIMIT = 4;
 $DAILY_AGENT_INTEREST_LIMIT = 3;
 $UID_REVIEW_CHAT_LIMIT = 3;
 $HUMAN_AGENT_URL = "https://t.me/Official_YaarWinapp";
+$POTENTIAL_AGENT_AUTO_REPLY_ENABLED = (bool)($config["POTENTIAL_AGENT_AUTO_REPLY_ENABLED"] ?? true);
+$POTENTIAL_AGENT_AUTO_REPLY_TEMPLATE = trim((string)($config["POTENTIAL_AGENT_AUTO_REPLY_TEMPLATE"] ?? ""));
 
 function readBotDataFile($file) {
     if (!file_exists($file)) {
@@ -1804,15 +1806,92 @@ function showNonMemberTeacherPrompt($chat_id) {
 }
 
 function handlePotentialAgentInterest($chat_id, $username, $first_name) {
+    global $HUMAN_AGENT_URL, $POTENTIAL_AGENT_AUTO_REPLY_ENABLED, $POTENTIAL_AGENT_AUTO_REPLY_TEMPLATE;
+
     $displayName = getDisplayName($username, $first_name);
     $adminName = $username !== "" ? "@" . $username : "Telegram ID " . $chat_id;
 
-    sendMessage(
-        $chat_id,
-        "Thank you, " . $displayName . ". We have received your Telegram ID. Our teacher will contact you with more information."
+    setUserState($chat_id, "potential_agent_followup", [
+        "username" => $username,
+        "first_name" => $first_name,
+        "potential_agent_started_at" => date("Y-m-d H:i:s")
+    ]);
+
+    if ($POTENTIAL_AGENT_AUTO_REPLY_ENABLED) {
+        $template = $POTENTIAL_AGENT_AUTO_REPLY_TEMPLATE;
+
+        if ($template === "") {
+            $template =
+                "Hello {name}, thank you for your interest in becoming a <b>YaarWin agent</b>.\n\n" .
+                "Our CS team is ready to guide you. To help us respond faster, please reply with:\n\n" .
+                "1. Your city or country\n" .
+                "2. Your Telegram username\n" .
+                "3. Whether you already have a community or traffic source\n\n" .
+                "After you reply, our admin will review your details and continue the conversation.";
+        }
+
+        $message = strtr($template, [
+            "{name}" => $displayName,
+            "{username}" => htmlspecialchars($username !== "" ? "@" . $username : ""),
+            "{chat_id}" => htmlspecialchars((string)$chat_id),
+            "{first_name}" => htmlspecialchars($first_name ?: "there")
+        ]);
+
+        sendMessage(
+            $chat_id,
+            $message,
+            [
+                "inline_keyboard" => [
+                    [
+                        [
+                            "text" => "Chat with CS",
+                            "url" => $HUMAN_AGENT_URL
+                        ]
+                    ]
+                ]
+            ]
+        );
+    } else {
+        sendMessage(
+            $chat_id,
+            "Thank you, " . $displayName . ". We have received your Telegram ID. Our teacher will contact you with more information."
+        );
+    }
+
+    notifyAdmin(
+        "📩 Potential agent auto-CS started\n\n" .
+        "User: " . $adminName . "\n" .
+        "Name: " . htmlspecialchars($first_name) . "\n" .
+        "Chat ID: " . $chat_id . "\n" .
+        "Auto reply: " . ($POTENTIAL_AGENT_AUTO_REPLY_ENABLED ? "sent" : "disabled")
+    );
+}
+
+function handlePotentialAgentFollowupMessage($chat_id, $username, $first_name, $messageText) {
+    $messageText = trim((string)$messageText);
+
+    if ($messageText === "") {
+        sendMessage(
+            $chat_id,
+            "Please send your city, Telegram username, and whether you already have a community or traffic source."
+        );
+        return;
+    }
+
+    $adminName = $username !== "" ? "@" . $username : "Telegram ID " . $chat_id;
+
+    notifyAdmin(
+        "📨 Potential agent reply\n\n" .
+        "User: " . $adminName . "\n" .
+        "Name: " . htmlspecialchars($first_name) . "\n" .
+        "Chat ID: " . $chat_id . "\n\n" .
+        "Message:\n" . htmlspecialchars($messageText)
     );
 
-    notifyAdmin($adminName . " (potential agent)");
+    sendMessage(
+        $chat_id,
+        "Thank you. We received your details and forwarded them to our CS team. Please keep this chat open so we can continue guiding you."
+    );
 }
 
 function showProblemMenu($chat_id, $uid, $withQuit = false) {
@@ -2327,6 +2406,12 @@ if (isset($update["message"])) {
             "Message:\n" . $text
         );
 
+        exit;
+    }
+
+    if ($userState["state"] === "potential_agent_followup") {
+        $combinedText = trim($text . "\n" . $caption);
+        handlePotentialAgentFollowupMessage($chat_id, $username, $first_name, $combinedText);
         exit;
     }
 
