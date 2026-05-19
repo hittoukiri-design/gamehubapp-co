@@ -39,6 +39,7 @@ jobs:
       - name: Verify OpenAI secret
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CODEX_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           if [ -z "$OPENAI_API_KEY" ]; then
             echo "::error::Missing OPENAI_API_KEY repository secret"
@@ -48,6 +49,7 @@ jobs:
       - name: Update cricket content with Codex
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CODEX_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           codex --search --ask-for-approval never exec \
             --model gpt-5.3-codex \
