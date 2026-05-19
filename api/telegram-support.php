@@ -66,6 +66,7 @@ $ADMIN_TESTER_CHAT_IDS_FILE = $PRIVATE_BOT_DIR . "/admin_tester_chat_ids.json";
 $PANEL_AUTO_SYNC_LOCK_FILE = $PRIVATE_BOT_DIR . "/panel_auto_sync.lock";
 $PANEL_AUTO_SYNC_META_FILE = $PRIVATE_BOT_DIR . "/panel_auto_sync_meta.json";
 $ABUSE_FILE = $PRIVATE_BOT_DIR . "/abuse_control.json";
+$POTENTIAL_AGENTS_FILE = $PRIVATE_BOT_DIR . "/potential_agents.json";
 $LOCKOUT_SECONDS = 300;
 $MAX_FAILED_ATTEMPTS = 3;
 $PROGRESSIVE_COOLDOWN_SECONDS = [300, 900, 3600, 86400];
@@ -119,6 +120,89 @@ function loadUsers($usersFile) {
 
 function saveUsers($usersFile, $users) {
     writeBotDataFile($usersFile, $users);
+}
+
+function loadPotentialAgents() {
+    global $POTENTIAL_AGENTS_FILE;
+
+    if (!file_exists($POTENTIAL_AGENTS_FILE)) {
+        writeBotDataFile($POTENTIAL_AGENTS_FILE, []);
+    }
+
+    $agents = readBotDataFile($POTENTIAL_AGENTS_FILE);
+    return is_array($agents) ? $agents : [];
+}
+
+function savePotentialAgents($agents) {
+    global $POTENTIAL_AGENTS_FILE;
+
+    writeBotDataFile($POTENTIAL_AGENTS_FILE, $agents);
+}
+
+function upsertPotentialAgent($chat_id, $username, $first_name, $source = "potential_agent_yes") {
+    $agents = loadPotentialAgents();
+    $key = (string)$chat_id;
+    $now = date("Y-m-d H:i:s");
+
+    $record = $agents[$key] ?? [
+        "chat_id" => (string)$chat_id,
+        "username" => "",
+        "first_name" => "",
+        "source" => $source,
+        "status" => "new",
+        "created_at" => $now,
+        "last_seen_at" => $now,
+        "last_reply_at" => "",
+        "reply_count" => 0,
+        "replies" => []
+    ];
+
+    $record["chat_id"] = (string)$chat_id;
+    $record["username"] = ltrim(trim((string)$username), "@");
+    $record["first_name"] = trim((string)$first_name);
+    $record["source"] = $record["source"] ?: $source;
+    $record["last_seen_at"] = $now;
+
+    if (($record["status"] ?? "") === "") {
+        $record["status"] = "new";
+    }
+
+    if (!isset($record["replies"]) || !is_array($record["replies"])) {
+        $record["replies"] = [];
+    }
+
+    $agents[$key] = $record;
+    savePotentialAgents($agents);
+
+    return $record;
+}
+
+function appendPotentialAgentReply($chat_id, $username, $first_name, $messageText) {
+    $agents = loadPotentialAgents();
+    $key = (string)$chat_id;
+    $record = $agents[$key] ?? upsertPotentialAgent($chat_id, $username, $first_name, "potential_agent_reply");
+    $now = date("Y-m-d H:i:s");
+
+    $record["username"] = ltrim(trim((string)$username), "@");
+    $record["first_name"] = trim((string)$first_name);
+    $record["status"] = "replied";
+    $record["last_seen_at"] = $now;
+    $record["last_reply_at"] = $now;
+    $record["reply_count"] = (int)($record["reply_count"] ?? 0) + 1;
+
+    if (!isset($record["replies"]) || !is_array($record["replies"])) {
+        $record["replies"] = [];
+    }
+
+    $record["replies"][] = [
+        "at" => $now,
+        "message" => trim((string)$messageText)
+    ];
+
+    $agents[$key] = $record;
+    savePotentialAgents($agents);
+
+    return $record;
 }
 
 function loadWithdrawalStatuses() {
@@ -1237,6 +1321,55 @@ function handleSyncRechargeCommand($chat_id) {
     );
 }
 
+function handlePotentialAgentsCommand($chat_id) {
+    if (!isAdminChat($chat_id)) {
+        sendMessage($chat_id, "This command is only available for the bot admin.");
+        return;
+    }
+
+    $agents = loadPotentialAgents();
+
+    if (!$agents) {
+        sendMessage($chat_id, "No potential agents saved yet.");
+        return;
+    }
+
+    uasort($agents, function($a, $b) {
+        return strcmp((string)($b["last_seen_at"] ?? ""), (string)($a["last_seen_at"] ?? ""));
+    });
+
+    $lines = ["📋 <b>Potential Agents</b>"];
+    $count = 0;
+
+    foreach ($agents as $agent) {
+        $count++;
+        if ($count > 20) {
+            break;
+        }
+
+        $username = trim((string)($agent["username"] ?? ""));
+        $usernameLabel = $username !== "" ? "@" . htmlspecialchars($username) : "no username";
+        $firstName = htmlspecialchars((string)($agent["first_name"] ?? ""));
+        $chatId = htmlspecialchars((string)($agent["chat_id"] ?? ""));
+        $status = htmlspecialchars((string)($agent["status"] ?? "new"));
+        $replyCount = (int)($agent["reply_count"] ?? 0);
+        $lastSeen = htmlspecialchars((string)($agent["last_seen_at"] ?? ""));
+
+        $lines[] =
+            $count . ". " . $usernameLabel . "\n" .
+            "Name: " . ($firstName !== "" ? $firstName : "-") . "\n" .
+            "Chat ID: <code>" . $chatId . "</code>\n" .
+            "Status: " . $status . " | Replies: " . $replyCount . "\n" .
+            "Last seen: " . $lastSeen;
+    }
+
+    if (count($agents) > 20) {
+        $lines[] = "Showing latest 20 of " . count($agents) . " saved potential agents.";
+    }
+
+    sendMessage($chat_id, implode("\n\n", $lines));
+}
+
 function isPanelAutoSyncRequest($payload) {
     return is_array($payload) && (($payload["action"] ?? "") === "panel_sync");
 }
@@ -1816,6 +1949,7 @@ function handlePotentialAgentInterest($chat_id, $username, $first_name) {
         "first_name" => $first_name,
         "potential_agent_started_at" => date("Y-m-d H:i:s")
     ]);
+    upsertPotentialAgent($chat_id, $username, $first_name);
 
     if ($POTENTIAL_AGENT_AUTO_REPLY_ENABLED) {
         $template = $POTENTIAL_AGENT_AUTO_REPLY_TEMPLATE;
@@ -1879,6 +2013,7 @@ function handlePotentialAgentFollowupMessage($chat_id, $username, $first_name, $
     }
 
     $adminName = $username !== "" ? "@" . $username : "Telegram ID " . $chat_id;
+    appendPotentialAgentReply($chat_id, $username, $first_name, $messageText);
 
     notifyAdmin(
         "📨 Potential agent reply\n\n" .
@@ -2270,6 +2405,11 @@ if (isset($update["message"])) {
 
     if (preg_match('/^\/syncrc(?:@\w+)?$/i', $text)) {
         handleSyncRechargeCommand($chat_id);
+        exit;
+    }
+
+    if (preg_match('/^\/(?:potentialagents|agents)(?:@\w+)?$/i', $text)) {
+        handlePotentialAgentsCommand($chat_id);
         exit;
     }
 
