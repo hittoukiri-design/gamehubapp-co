@@ -1,0 +1,108 @@
+name: Manual Safe Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview files without uploading"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yaarwinapp-co-manual-safe-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build audited deploy list
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          list="$RUNNER_TEMP/deploy-files.txt"
+          : > "$list"
+
+          add_path() {
+            local path="$1"
+            if [ -f "$path" ]; then
+              printf '%s\n' "$path" >> "$list"
+            elif [ -d "$path" ]; then
+              find "$path" -type f -print >> "$list"
+            fi
+          }
+
+          for path in \
+            sitemap.xml robots.txt llms.txt \
+            blog assets/img/blog assets/img/promos \
+            account-verification app-download best-online-betting-india cricket-betting-site-india \
+            fast-withdrawal rummy-game-india yaarwin-app-download yaarwin-bonus-code-india \
+            yaarwin-customer-care yaarwin-invite-code-india yaarwin-official-link yaarwin-withdrawal-time
+          do
+            add_path "$path"
+          done
+
+          sort -u "$list" -o "$list"
+          if grep -E '^(\.git/|\.github/|\.htaccess$|index\.html$|api/|login/|register/|\.visit-data/|bot\.php$|users\.json$|user_state\.json$)' "$list"; then
+            echo "::error::Deploy list contains protected yaarwinapp.co paths"
+            exit 1
+          fi
+
+          echo "Audited local-to-remote deploy list:"
+          sed 's#^#public_html/#' "$list"
+          cp "$list" deploy-files.txt
+
+      - name: Deploy allowlisted files
+        if: ${{ inputs.dry_run == false }}
+        shell: bash
+        env:
+          HOST: ${{ secrets.HOSTINGER_HOST }}
+          PORT: ${{ secrets.HOSTINGER_PORT }}
+          USER: ${{ secrets.HOSTINGER_USERNAME }}
+          KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          REMOTE_PATH: ${{ secrets.HOSTINGER_REMOTE_PATH }}
+        run: |
+          set -euo pipefail
+          [ -n "$HOST" ] && [ -n "$USER" ] && [ -n "$KEY" ] && [ -n "$REMOTE_PATH" ]
+          [ -n "$PORT" ] || PORT=22
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "$PORT" "$HOST" >> ~/.ssh/known_hosts
+          target="$USER@$HOST"
+          lock="/home/u779921565/.automation-locks/yaarwin-ecosystem.lock"
+          lock_payload="$(printf 'automation=github-actions-manual-safe-deploy\nsite=yaarwinapp.co\nrepo=%s\nrun=%s\ntime=%s\n' "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$(date -u +%FT%TZ)" | base64 | tr -d '\n')"
+          ssh -p "$PORT" "$target" "mkdir -p /home/u779921565/.automation-locks && ( set -C; echo '$lock_payload' | base64 -d > '$lock' )"
+          trap 'ssh -p "$PORT" "$target" "rm -f /home/u779921565/.automation-locks/yaarwin-ecosystem.lock" || true' EXIT
+          backup="$REMOTE_PATH/.deploy-backups/${GITHUB_RUN_ID}-$(date -u +%Y%m%dT%H%M%SZ)"
+          while IFS= read -r file; do
+            case "$file" in
+              sitemap.xml|blog/index.html)
+                ssh -p "$PORT" "$target" "if [ -f '$REMOTE_PATH/$file' ]; then mkdir -p '$backup/$(dirname "$file")' && cp '$REMOTE_PATH/$file' '$backup/$file'; fi"
+                ;;
+            esac
+          done < deploy-files.txt
+          rsync -avz --files-from=deploy-files.txt ./ -e "ssh -p $PORT" "$target:$REMOTE_PATH/"
+
+      - name: Dry-run deploy preview
+        if: ${{ inputs.dry_run == true }}
+        shell: bash
+        env:
+          HOST: ${{ secrets.HOSTINGER_HOST }}
+          PORT: ${{ secrets.HOSTINGER_PORT }}
+          USER: ${{ secrets.HOSTINGER_USERNAME }}
+          REMOTE_PATH: ${{ secrets.HOSTINGER_REMOTE_PATH }}
+        run: |
+          set -euo pipefail
+          [ -n "$PORT" ] || PORT=22
+          echo "Dry run only. Configure Hostinger secrets and rerun with dry_run=false to upload."
+          sed "s#^#./ -> ${USER:-HOSTINGER_USERNAME}@${HOST:-HOSTINGER_HOST}:${REMOTE_PATH:-HOSTINGER_REMOTE_PATH}/#" deploy-files.txt

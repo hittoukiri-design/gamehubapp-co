@@ -27,6 +27,9 @@ if ($BOT_TOKEN === "") {
 }
 
 $requestMethod = $_SERVER["REQUEST_METHOD"] ?? "GET";
+$BOT_API_WEBHOOK_FALLBACK_MODE = !in_array($requestMethod, ["GET", "HEAD"], true);
+$WEBHOOK_INLINE_RESPONSE_SENT = false;
+
 if ($requestMethod === "GET" || $requestMethod === "HEAD") {
     header("Content-Type: application/json; charset=utf-8");
     header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -67,6 +70,7 @@ $PANEL_AUTO_SYNC_LOCK_FILE = $PRIVATE_BOT_DIR . "/panel_auto_sync.lock";
 $PANEL_AUTO_SYNC_META_FILE = $PRIVATE_BOT_DIR . "/panel_auto_sync_meta.json";
 $ABUSE_FILE = $PRIVATE_BOT_DIR . "/abuse_control.json";
 $POTENTIAL_AGENTS_FILE = $PRIVATE_BOT_DIR . "/potential_agents.json";
+$TELEGRAM_OUTBOX_DIR = $PRIVATE_BOT_DIR . "/telegram_outbox";
 $LOCKOUT_SECONDS = 300;
 $MAX_FAILED_ATTEMPTS = 3;
 $PROGRESSIVE_COOLDOWN_SECONDS = [300, 900, 3600, 86400];
@@ -102,6 +106,40 @@ function writeBotDataFile($file, $data) {
         json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
         LOCK_EX
     );
+}
+
+function ensureTelegramOutboxDir() {
+    global $TELEGRAM_OUTBOX_DIR;
+
+    if (!is_dir($TELEGRAM_OUTBOX_DIR)) {
+        mkdir($TELEGRAM_OUTBOX_DIR, 0775, true);
+    }
+}
+
+function queueTelegramOutbox($method, $data, $meta = []) {
+    global $TELEGRAM_OUTBOX_DIR;
+
+    ensureTelegramOutboxDir();
+
+    try {
+        $suffix = bin2hex(random_bytes(4));
+    } catch (Exception $e) {
+        $suffix = substr(md5(uniqid("", true)), 0, 8);
+    }
+
+    $payload = [
+        "method" => (string)$method,
+        "data" => is_array($data) ? $data : [],
+        "meta" => array_merge([
+            "created_at" => date("c"),
+            "source" => "telegram-support"
+        ], is_array($meta) ? $meta : [])
+    ];
+
+    $file = $TELEGRAM_OUTBOX_DIR . "/" . gmdate("Ymd-His") . "-" . $suffix . ".json";
+    file_put_contents($file, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+
+    return $file;
 }
 
 function loadUsers($usersFile) {
@@ -452,12 +490,59 @@ function saveMemberData($usersFile, $chatId, $from, $uid = null) {
 }
 
 function apiRequest($method, $data = []) {
-    global $API_URL;
+    global $API_URL, $BOT_API_WEBHOOK_FALLBACK_MODE, $WEBHOOK_INLINE_RESPONSE_SENT;
+
+    if ($BOT_API_WEBHOOK_FALLBACK_MODE) {
+        if (in_array($method, ["answerCallbackQuery", "sendAnimation", "sendVideo", "sendPhoto"], true)) {
+            return json_encode([
+                "ok" => true,
+                "result" => [
+                    "via" => "webhook-fallback-skip",
+                    "method" => $method
+                ]
+            ]);
+        }
+
+        if ($method === "sendMessage" && !$WEBHOOK_INLINE_RESPONSE_SENT) {
+            if (isset($data["reply_markup"]) && is_string($data["reply_markup"])) {
+                $decodedReplyMarkup = json_decode($data["reply_markup"], true);
+                if (is_array($decodedReplyMarkup)) {
+                    $data["reply_markup"] = $decodedReplyMarkup;
+                }
+            }
+
+            header("Content-Type: application/json; charset=utf-8");
+            header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+            echo json_encode(
+                array_merge(["method" => $method], $data),
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            );
+            $WEBHOOK_INLINE_RESPONSE_SENT = true;
+
+            return json_encode([
+                "ok" => true,
+                "result" => [
+                    "via" => "webhook-fallback-response",
+                    "method" => $method
+                ]
+            ]);
+        }
+
+        return json_encode([
+            "ok" => true,
+            "result" => [
+                "via" => "webhook-fallback-noop",
+                "method" => $method
+            ]
+        ]);
+    }
 
     $ch = curl_init($API_URL . $method);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 8);
 
     $result = curl_exec($ch);
 
@@ -677,7 +762,7 @@ function signPanelPayload($payload) {
 function getPanelDateRange($days) {
     $timezone = new DateTimeZone("Asia/Kolkata");
     $end = new DateTime("now", $timezone);
-    $start = new DateTime("2026-05-01 00:00:00", $timezone);
+    $start = new DateTime("first day of this month 00:00:00", $timezone);
 
     return [
         "start" => $start->format("Y-m-d 00:00:00"),
@@ -711,6 +796,383 @@ function buildMonthEndTotalLine($label, $count, $range) {
     }
 
     return "\nTotal " . $label . " this month (" . htmlspecialchars(formatPanelRangeLabel($range)) . "): <b>" . (int)$count . "</b>";
+}
+
+function getPreviousMonthRange() {
+    $timezone = new DateTimeZone("Asia/Kolkata");
+    $start = new DateTime("first day of last month 00:00:00", $timezone);
+    $end = new DateTime("last day of last month 23:59:59", $timezone);
+
+    return [
+        "start" => $start->format("Y-m-d H:i:s"),
+        "end" => $end->format("Y-m-d H:i:s"),
+        "up_end" => $end->format("Y-m-d 00:00:00")
+    ];
+}
+
+function getPanelMonthCommandMap() {
+    return [
+        "january" => 1,
+        "jan" => 1,
+        "february" => 2,
+        "feb" => 2,
+        "march" => 3,
+        "mar" => 3,
+        "april" => 4,
+        "apr" => 4,
+        "may" => 5,
+        "june" => 6,
+        "jun" => 6,
+        "july" => 7,
+        "jul" => 7,
+        "august" => 8,
+        "aug" => 8,
+        "september" => 9,
+        "sep" => 9,
+        "october" => 10,
+        "oct" => 10,
+        "november" => 11,
+        "nov" => 11,
+        "december" => 12,
+        "dec" => 12
+    ];
+}
+
+function getPanelMonthRange($monthNumber) {
+    $timezone = new DateTimeZone("Asia/Kolkata");
+    $now = new DateTime("now", $timezone);
+    $currentMonth = (int)$now->format("n");
+    $year = (int)$now->format("Y");
+    $monthNumber = max(1, min(12, (int)$monthNumber));
+
+    if ($monthNumber > $currentMonth) {
+        $year--;
+    }
+
+    $start = new DateTime(sprintf("%04d-%02d-01 00:00:00", $year, $monthNumber), $timezone);
+    $end = clone $start;
+    $end->modify("last day of this month")->setTime(23, 59, 59);
+
+    if ($year === (int)$now->format("Y") && $monthNumber === $currentMonth && $end > $now) {
+        $end = clone $now;
+        $end->setTime(23, 59, 59);
+    }
+
+    return [
+        "start" => $start->format("Y-m-d H:i:s"),
+        "end" => $end->format("Y-m-d H:i:s"),
+        "up_end" => $end->format("Y-m-d 00:00:00")
+    ];
+}
+
+function resolvePanelMonthCommand($command) {
+    $command = strtolower(trim((string)$command));
+    $command = preg_replace('/^\/data/', '', $command);
+    $command = preg_replace('/@\w+$/', '', $command);
+    $command = trim((string)$command);
+    $months = getPanelMonthCommandMap();
+
+    if ($command === "" || !isset($months[$command])) {
+        return null;
+    }
+
+    return [
+        "month" => $months[$command],
+        "label" => DateTime::createFromFormat("!m", sprintf("%02d", $months[$command]))->format("F")
+    ];
+}
+
+function getPanelCompletedMonthRanges() {
+    $timezone = new DateTimeZone("Asia/Kolkata");
+    $now = new DateTime("now", $timezone);
+    $startYear = 2026;
+    $startMonth = 5;
+    $cursor = new DateTime(sprintf("%04d-%02d-01 00:00:00", $startYear, $startMonth), $timezone);
+    $currentMonthStart = new DateTime($now->format("Y-m-01 00:00:00"), $timezone);
+    $ranges = [];
+
+    while ($cursor < $currentMonthStart && count($ranges) < 36) {
+        $month = (int)$cursor->format("n");
+        $year = (int)$cursor->format("Y");
+        $range = getPanelMonthRange($month);
+        $rangeStart = DateTime::createFromFormat("Y-m-d H:i:s", $range["start"], $timezone);
+
+        if ($rangeStart && (int)$rangeStart->format("Y") === $year) {
+            $ranges[] = [
+                "label" => $cursor->format("F Y"),
+                "range" => $range
+            ];
+        }
+
+        $cursor->modify("first day of next month");
+    }
+
+    return $ranges;
+}
+
+function parsePanelDateValue($value, $timezone) {
+    $value = trim(cleanPanelText($value));
+
+    if ($value === "") {
+        return null;
+    }
+
+    if (preg_match('/\b\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\b/', $value, $matches)) {
+        $value = $matches[0];
+    } elseif (preg_match('/\b\d{2}[\/-]\d{2}[\/-]\d{4}(?: \d{2}:\d{2}(?::\d{2})?)?\b/', $value, $matches)) {
+        $value = $matches[0];
+    }
+
+    $formats = [
+        "Y-m-d H:i:s",
+        "Y-m-d H:i",
+        "Y-m-d",
+        "d-m-Y H:i:s",
+        "d-m-Y H:i",
+        "d-m-Y",
+        "d/m/Y H:i:s",
+        "d/m/Y H:i",
+        "d/m/Y"
+    ];
+
+    foreach ($formats as $format) {
+        $dt = DateTime::createFromFormat($format, $value, $timezone);
+        if ($dt instanceof DateTime) {
+            return $dt;
+        }
+    }
+
+    $timestamp = strtotime($value);
+    if ($timestamp === false) {
+        return null;
+    }
+
+    $dt = new DateTime("@" . $timestamp);
+    $dt->setTimezone($timezone);
+    return $dt;
+}
+
+function countUidRecapForRange($range) {
+    $timezone = new DateTimeZone("Asia/Kolkata");
+    $startTs = strtotime($range["start"] . " Asia/Kolkata");
+    $endTs = strtotime($range["end"] . " Asia/Kolkata");
+    $count = 0;
+
+    foreach (loadPanelUidMembers() as $record) {
+        if (!is_array($record)) {
+            continue;
+        }
+
+        $dt = parsePanelDateValue($record["registration_time"] ?? "", $timezone);
+        if (!$dt) {
+            continue;
+        }
+
+        $ts = $dt->getTimestamp();
+        if ($ts >= $startTs && $ts <= $endTs) {
+            $count++;
+        }
+    }
+
+    return $count;
+}
+
+function countWithdrawalRecapForRange($range) {
+    $timezone = new DateTimeZone("Asia/Kolkata");
+    $startTs = strtotime($range["start"] . " Asia/Kolkata");
+    $endTs = strtotime($range["end"] . " Asia/Kolkata");
+    $count = 0;
+
+    foreach (loadPanelWithdrawalOrders() as $record) {
+        if (!is_array($record)) {
+            continue;
+        }
+
+        if (($record["status"] ?? "") !== "completed") {
+            continue;
+        }
+
+        $dt = parsePanelDateValue(($record["add_time"] ?? "") ?: ($record["application_time"] ?? ""), $timezone);
+        if (!$dt) {
+            continue;
+        }
+
+        $ts = $dt->getTimestamp();
+        if ($ts >= $startTs && $ts <= $endTs) {
+            $count++;
+        }
+    }
+
+    return $count;
+}
+
+function countRechargeRecapForRange($range) {
+    $timezone = new DateTimeZone("Asia/Kolkata");
+    $startTs = strtotime($range["start"] . " Asia/Kolkata");
+    $endTs = strtotime($range["end"] . " Asia/Kolkata");
+    $count = 0;
+
+    foreach (loadPanelRechargeOrders() as $record) {
+        if (!is_array($record)) {
+            continue;
+        }
+
+        $dt = parsePanelDateValue(($record["add_time"] ?? "") ?: ($record["up_time"] ?? ""), $timezone);
+        if (!$dt) {
+            continue;
+        }
+
+        $ts = $dt->getTimestamp();
+        if ($ts >= $startTs && $ts <= $endTs) {
+            $count++;
+        }
+    }
+
+    return $count;
+}
+
+function countCurrentMonthWithdrawalCache() {
+    return countWithdrawalRecapForRange(getPanelDateRange(0));
+}
+
+function countCurrentMonthUidCache() {
+    return countUidRecapForRange(getPanelDateRange(0));
+}
+
+function countCurrentMonthRechargeCache() {
+    return countRechargeRecapForRange(getPanelDateRange(0));
+}
+
+function countPanelWithdrawalsForRange($range) {
+    $count = 0;
+    $totalPages = 1;
+
+    for ($pageNo = 1; $pageNo <= min($totalPages, 50); $pageNo++) {
+        $error = "";
+        $result = fetchPanelWithdrawPage($pageNo, $range, $error);
+        if (!$result) {
+            return [
+                "ok" => false,
+                "error" => $error,
+                "count" => $count
+            ];
+        }
+
+        $data = $result["data"] ?? [];
+        $list = $data["list"] ?? [];
+        $totalPages = max(1, (int)($data["totalPage"] ?? 1));
+
+        foreach ($list as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $record = normalizePanelWithdrawalRow($row);
+            if (!$record || ($record["status"] ?? "") !== "completed") {
+                continue;
+            }
+
+            $count++;
+        }
+
+        if (count($list) === 0) {
+            break;
+        }
+    }
+
+    return [
+        "ok" => true,
+        "count" => $count,
+        "pages" => min($totalPages, 50)
+    ];
+}
+
+function countPanelUidsForRange($range) {
+    $count = 0;
+    $totalPages = 1;
+
+    for ($pageNo = 1; $pageNo <= min($totalPages, 50); $pageNo++) {
+        $error = "";
+        $result = fetchPanelUidPage($pageNo, $range, $error);
+        if (!$result) {
+            return [
+                "ok" => false,
+                "error" => $error,
+                "count" => $count
+            ];
+        }
+
+        $data = $result["data"] ?? [];
+        $list = $data["list"] ?? [];
+        $totalPages = max(1, (int)($data["totalPage"] ?? 1));
+
+        foreach ($list as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $record = normalizePanelUidMemberRow($row);
+            if (!$record) {
+                continue;
+            }
+
+            $count++;
+        }
+
+        if (count($list) === 0) {
+            break;
+        }
+    }
+
+    return [
+        "ok" => true,
+        "count" => $count,
+        "pages" => min($totalPages, 50)
+    ];
+}
+
+function countPanelRechargesForRange($range) {
+    $count = 0;
+    $totalPages = 1;
+
+    for ($pageNo = 1; $pageNo <= min($totalPages, 50); $pageNo++) {
+        $error = "";
+        $result = fetchPanelRechargePage($pageNo, $range, $error);
+        if (!$result) {
+            return [
+                "ok" => false,
+                "error" => $error,
+                "count" => $count
+            ];
+        }
+
+        $data = $result["data"] ?? [];
+        $list = $data["list"] ?? [];
+        $totalPages = max(1, (int)($data["totalPage"] ?? 1));
+
+        foreach ($list as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $record = normalizePanelRechargeRow($row);
+            if (!$record) {
+                continue;
+            }
+
+            $count++;
+        }
+
+        if (count($list) === 0) {
+            break;
+        }
+    }
+
+    return [
+        "ok" => true,
+        "count" => $count,
+        "pages" => min($totalPages, 50)
+    ];
 }
 
 function mapPanelWithdrawalStatus($status) {
@@ -1018,7 +1480,7 @@ function syncPanelWithdrawalOrders() {
                 "error" => $error,
                 "new" => $newCount,
                 "updated" => $updatedCount,
-                "total_cached" => count($cache),
+                "total_cached" => countCurrentMonthWithdrawalCache(),
                 "range" => $dateRange
             ];
         }
@@ -1063,7 +1525,7 @@ function syncPanelWithdrawalOrders() {
         "updated" => $updatedCount,
         "seen" => $seenCount,
         "pages" => min($totalPages, 10),
-        "total_cached" => count($cache),
+        "total_cached" => countCurrentMonthWithdrawalCache(),
         "range" => $dateRange
     ];
 }
@@ -1099,7 +1561,7 @@ function syncPanelRegisteredUids() {
                 "error" => $error,
                 "new" => $newCount,
                 "updated" => $updatedCount,
-                "total_cached" => count($existing),
+                "total_cached" => countCurrentMonthUidCache(),
                 "range" => $dateRange
             ];
         }
@@ -1146,7 +1608,7 @@ function syncPanelRegisteredUids() {
         "updated" => $updatedCount,
         "seen" => $seenCount,
         "pages" => min($totalPages, 50),
-        "total_cached" => count($existing),
+        "total_cached" => countCurrentMonthUidCache(),
         "range" => $dateRange
     ];
 }
@@ -1172,7 +1634,7 @@ function syncPanelRechargeOrders() {
                 "error" => $error,
                 "new" => $newCount,
                 "updated" => $updatedCount,
-                "total_cached" => count($cache),
+                "total_cached" => countCurrentMonthRechargeCache(),
                 "range" => $dateRange
             ];
         }
@@ -1219,18 +1681,22 @@ function syncPanelRechargeOrders() {
         "seen" => $seenCount,
         "success_seen" => $successCount,
         "pages" => min($totalPages, 20),
-        "total_cached" => count($cache),
+        "total_cached" => countCurrentMonthRechargeCache(),
         "range" => $dateRange
     ];
 }
 
 function handleSyncWithdrawCommand($chat_id) {
+    global $BOT_API_WEBHOOK_FALLBACK_MODE;
+
     if (!isAdminChat($chat_id)) {
         sendMessage($chat_id, "This command is only available for the bot admin.");
         return;
     }
 
-    sendMessage($chat_id, "⏳ Syncing withdrawal data from the panel. Please wait...");
+    if (!$BOT_API_WEBHOOK_FALLBACK_MODE) {
+        sendMessage($chat_id, "⏳ Syncing withdrawal data from the panel. Please wait...");
+    }
 
     $result = syncPanelWithdrawalOrders();
 
@@ -1257,12 +1723,16 @@ function handleSyncWithdrawCommand($chat_id) {
 }
 
 function handleSyncUidCommand($chat_id) {
+    global $BOT_API_WEBHOOK_FALLBACK_MODE;
+
     if (!isAdminChat($chat_id)) {
         sendMessage($chat_id, "This command is only available for the bot admin.");
         return;
     }
 
-    sendMessage($chat_id, "⏳ Syncing registered UID data from the panel. Please wait...");
+    if (!$BOT_API_WEBHOOK_FALLBACK_MODE) {
+        sendMessage($chat_id, "⏳ Syncing registered UID data from the panel. Please wait...");
+    }
 
     $result = syncPanelRegisteredUids();
 
@@ -1289,12 +1759,16 @@ function handleSyncUidCommand($chat_id) {
 }
 
 function handleSyncRechargeCommand($chat_id) {
+    global $BOT_API_WEBHOOK_FALLBACK_MODE;
+
     if (!isAdminChat($chat_id)) {
         sendMessage($chat_id, "This command is only available for the bot admin.");
         return;
     }
 
-    sendMessage($chat_id, "⏳ Syncing successful recharge data from the panel. Please wait...");
+    if (!$BOT_API_WEBHOOK_FALLBACK_MODE) {
+        sendMessage($chat_id, "⏳ Syncing successful recharge data from the panel. Please wait...");
+    }
 
     $result = syncPanelRechargeOrders();
 
@@ -1319,6 +1793,173 @@ function handleSyncRechargeCommand($chat_id) {
         "Range: <code>" . htmlspecialchars($result["range"]["start"]) . "</code> to <code>" . htmlspecialchars($result["range"]["end"]) . "</code>" .
         buildMonthEndTotalLine("RC", (int)$result["total_cached"], $result["range"])
     );
+}
+
+function handleLastMonthRecapCommand($chat_id) {
+    global $BOT_API_WEBHOOK_FALLBACK_MODE;
+
+    if (!isAdminChat($chat_id)) {
+        sendMessage($chat_id, "This command is only available for the bot admin.");
+        return;
+    }
+
+    $range = getPreviousMonthRange();
+    if (!$BOT_API_WEBHOOK_FALLBACK_MODE) {
+        sendMessage($chat_id, "⏳ Building last month recap from the panel. Please wait...");
+    }
+
+    $uidResult = countPanelUidsForRange($range);
+    $wdResult = countPanelWithdrawalsForRange($range);
+    $rcResult = countPanelRechargesForRange($range);
+
+    if (empty($uidResult["ok"]) || empty($wdResult["ok"]) || empty($rcResult["ok"])) {
+        $errors = [];
+        if (empty($uidResult["ok"])) {
+            $errors[] = "UID: " . ($uidResult["error"] ?? "unknown error");
+        }
+        if (empty($wdResult["ok"])) {
+            $errors[] = "WD: " . ($wdResult["error"] ?? "unknown error");
+        }
+        if (empty($rcResult["ok"])) {
+            $errors[] = "RC: " . ($rcResult["error"] ?? "unknown error");
+        }
+
+        sendMessage(
+            $chat_id,
+            "❌ <b>Last month recap failed.</b>\n\n" . htmlspecialchars(implode("\n", $errors))
+        );
+        return;
+    }
+
+    sendMessage(
+        $chat_id,
+        "📊 <b>Last Month Recap</b>\n\n" .
+        "Period: <code>" . htmlspecialchars($range["start"]) . "</code> to <code>" . htmlspecialchars($range["end"]) . "</code>\n" .
+        "UID registered: <b>" . (int)$uidResult["count"] . "</b>\n" .
+        "Successful WD orders: <b>" . (int)$wdResult["count"] . "</b>\n" .
+        "Successful RC orders: <b>" . (int)$rcResult["count"] . "</b>\n\n" .
+        "Source: live panel query."
+    );
+}
+
+function buildPanelRecapForRange($range) {
+    $uidResult = countPanelUidsForRange($range);
+    $wdResult = countPanelWithdrawalsForRange($range);
+    $rcResult = countPanelRechargesForRange($range);
+
+    if (empty($uidResult["ok"]) || empty($wdResult["ok"]) || empty($rcResult["ok"])) {
+        $errors = [];
+        if (empty($uidResult["ok"])) {
+            $errors[] = "UID: " . ($uidResult["error"] ?? "unknown error");
+        }
+        if (empty($wdResult["ok"])) {
+            $errors[] = "WD: " . ($wdResult["error"] ?? "unknown error");
+        }
+        if (empty($rcResult["ok"])) {
+            $errors[] = "RC: " . ($rcResult["error"] ?? "unknown error");
+        }
+
+        return [
+            "ok" => false,
+            "error" => implode("\n", $errors)
+        ];
+    }
+
+    return [
+        "ok" => true,
+        "uid" => (int)$uidResult["count"],
+        "wd" => (int)$wdResult["count"],
+        "rc" => (int)$rcResult["count"]
+    ];
+}
+
+function handleMonthDataCommand($chat_id, $monthCommand) {
+    global $BOT_API_WEBHOOK_FALLBACK_MODE;
+
+    if (!isAdminChat($chat_id)) {
+        sendMessage($chat_id, "This command is only available for the bot admin.");
+        return;
+    }
+
+    $month = resolvePanelMonthCommand($monthCommand);
+    if (!$month) {
+        sendMessage($chat_id, "Unknown month command. Use commands like <code>/datamay</code>, <code>/datajune</code>, or <code>/datajuly</code>.");
+        return;
+    }
+
+    $range = getPanelMonthRange((int)$month["month"]);
+    if (!$BOT_API_WEBHOOK_FALLBACK_MODE) {
+        sendMessage($chat_id, "⏳ Building " . $month["label"] . " recap from the panel. Please wait...");
+    }
+
+    $result = buildPanelRecapForRange($range);
+    if (empty($result["ok"])) {
+        sendMessage(
+            $chat_id,
+            "❌ <b>" . htmlspecialchars($month["label"]) . " recap failed.</b>\n\n" . htmlspecialchars($result["error"] ?? "unknown error")
+        );
+        return;
+    }
+
+    sendMessage(
+        $chat_id,
+        "📊 <b>" . htmlspecialchars($month["label"]) . " Data Recap</b>\n\n" .
+        "Period: <code>" . htmlspecialchars($range["start"]) . "</code> to <code>" . htmlspecialchars($range["end"]) . "</code>\n" .
+        "UID registered: <b>" . (int)$result["uid"] . "</b>\n" .
+        "Successful WD orders: <b>" . (int)$result["wd"] . "</b>\n" .
+        "Successful RC orders: <b>" . (int)$result["rc"] . "</b>\n\n" .
+        "Source: live panel query."
+    );
+}
+
+function handleSyncAllMonthlyRecapCommand($chat_id) {
+    global $BOT_API_WEBHOOK_FALLBACK_MODE;
+
+    if (!isAdminChat($chat_id)) {
+        sendMessage($chat_id, "This command is only available for the bot admin.");
+        return;
+    }
+
+    $months = getPanelCompletedMonthRanges();
+    if (!$months) {
+        sendMessage($chat_id, "No completed month is available for <code>/syncall</code> yet.");
+        return;
+    }
+
+    if (!$BOT_API_WEBHOOK_FALLBACK_MODE) {
+        sendMessage($chat_id, "⏳ Building all completed monthly recaps from the panel. Please wait...");
+    }
+
+    $lines = ["📊 <b>Completed Monthly Recap</b>"];
+    $totals = ["uid" => 0, "wd" => 0, "rc" => 0];
+
+    foreach ($months as $month) {
+        $result = buildPanelRecapForRange($month["range"]);
+
+        if (empty($result["ok"])) {
+            $lines[] = "<b>" . htmlspecialchars($month["label"]) . "</b>: failed - " . htmlspecialchars($result["error"] ?? "unknown error");
+            continue;
+        }
+
+        $totals["uid"] += (int)$result["uid"];
+        $totals["wd"] += (int)$result["wd"];
+        $totals["rc"] += (int)$result["rc"];
+
+        $lines[] =
+            "<b>" . htmlspecialchars($month["label"]) . "</b>\n" .
+            "UID: <b>" . (int)$result["uid"] . "</b> | " .
+            "WD: <b>" . (int)$result["wd"] . "</b> | " .
+            "RC: <b>" . (int)$result["rc"] . "</b>";
+    }
+
+    $lines[] =
+        "<b>Total completed months</b>\n" .
+        "UID: <b>" . $totals["uid"] . "</b> | " .
+        "WD: <b>" . $totals["wd"] . "</b> | " .
+        "RC: <b>" . $totals["rc"] . "</b>";
+    $lines[] = "Source: live panel query.";
+
+    sendMessage($chat_id, implode("\n\n", $lines));
 }
 
 function handlePotentialAgentsCommand($chat_id) {
@@ -2284,10 +2925,14 @@ function showWithdrawInstructions($chat_id) {
 }
 
 function sendWithdrawalStatusResult($chat_id, $uid, $orderNumber, $status, $username, $first_name) {
+    global $BOT_API_WEBHOOK_FALLBACK_MODE;
+
     $orderNumber = normalizeOrderNumber($orderNumber);
     $record = getWithdrawalRecord($orderNumber);
 
-    sendMessage($chat_id, "⏳ Please wait while we check your withdrawal status.");
+    if (!$BOT_API_WEBHOOK_FALLBACK_MODE) {
+        sendMessage($chat_id, "⏳ Please wait while we check your withdrawal status.");
+    }
 
     if ($status === "completed") {
         $text = "✅ <b>Your withdrawal has been completed.</b>\n\n";
@@ -2348,7 +2993,20 @@ function completeWithdrawalCheck($chat_id, $uid, $orderNumber, $username, $first
 }
 
 function notifyAdmin($message) {
-    global $ADMIN_CHAT_ID;
+    global $ADMIN_CHAT_ID, $BOT_API_WEBHOOK_FALLBACK_MODE;
+
+    if ($BOT_API_WEBHOOK_FALLBACK_MODE) {
+        if ($ADMIN_CHAT_ID !== "") {
+            queueTelegramOutbox("sendMessage", [
+                "chat_id" => $ADMIN_CHAT_ID,
+                "text" => $message,
+                "parse_mode" => "HTML"
+            ], [
+                "source" => "notifyAdmin-fallback"
+            ]);
+        }
+        return;
+    }
 
     if ($ADMIN_CHAT_ID !== "") {
         sendMessage($ADMIN_CHAT_ID, $message);
@@ -2405,6 +3063,21 @@ if (isset($update["message"])) {
 
     if (preg_match('/^\/syncrc(?:@\w+)?$/i', $text)) {
         handleSyncRechargeCommand($chat_id);
+        exit;
+    }
+
+    if (preg_match('/^\/(?:rekapbulan|lastmonth)(?:@\w+)?$/i', $text)) {
+        handleLastMonthRecapCommand($chat_id);
+        exit;
+    }
+
+    if (preg_match('/^\/syncall(?:@\w+)?$/i', $text)) {
+        handleSyncAllMonthlyRecapCommand($chat_id);
+        exit;
+    }
+
+    if (preg_match('/^\/data(?:january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|october|oct|november|nov|december|dec)(?:@\w+)?$/i', $text)) {
+        handleMonthDataCommand($chat_id, $text);
         exit;
     }
 

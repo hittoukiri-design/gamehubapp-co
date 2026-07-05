@@ -1,74 +1,21 @@
-name: Daily Cricket Update
+name: Daily Cricket Update (disabled)
 
 on:
-  schedule:
-    - cron: "0 19 * * *"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: daily-cricket-update
+  group: daily-cricket-update-disabled
   cancel-in-progress: false
 
 jobs:
-  update:
+  disabled:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.3"
-
-      - name: Install Codex CLI
-        run: npm install -g @openai/codex
-
-      - name: Verify OpenAI secret
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          CODEX_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      - name: Stop disabled writer
         run: |
-          if [ -z "$OPENAI_API_KEY" ]; then
-            echo "::error::Missing OPENAI_API_KEY repository secret"
-            exit 1
-          fi
-
-      - name: Update cricket content with Codex
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          CODEX_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          codex --search --ask-for-approval never exec \
-            --model gpt-5.3-codex \
-            --sandbox workspace-write \
-            --cd "$GITHUB_WORKSPACE" \
-            --output-last-message "$RUNNER_TEMP/codex-cricket-summary.txt" \
-            - < .github/prompts/daily-cricket-update.md
-
-      - name: Run SEO safety guard
-        run: bash .github/scripts/guard-daily-cricket-update.sh
-
-      - name: Commit and push changes
-        run: |
-          if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
-            echo "No cricket changes to commit."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add blog cricket-betting-site-india/index.html sitemap.xml
-          git commit -m "Daily cricket content update"
-          git push
+          echo "GitHub Daily Cricket Update is intentionally disabled."
+          echo "Use Codex app automations only after manual re-approval."
+          exit 1
