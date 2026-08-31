@@ -297,7 +297,7 @@ img{display:block;max-width:100%}
 }
 
 
-/* guide section expansion - YaarWin India money pages */
+/* guide section expansion - GameHub India money pages */
 .player-guide{padding:64px 0;background:linear-gradient(180deg,rgba(28,149,54,.06),rgba(255,255,255,.015));}
 .player-guide-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:22px;align-items:start;}
 .player-copy{padding:28px;border-radius:24px;background:rgba(3,8,10,.68);border:1px solid rgba(28,149,54,.18);box-shadow:0 24px 64px rgba(0,0,0,.28)}
@@ -308,8 +308,8 @@ img{display:block;max-width:100%}
 :root{--primary:#1c9536!important;--primary-2:#14752b!important;--accent:#1c9536!important}.teal{color:#1c9536!important}.button.primary{background:linear-gradient(180deg,#1c9536,#14752b)!important}
 
 /* NTA1 Lighthouse/GSC performance + accessibility fixes */
-.hero-orb img[src*="yaarwin-yw-logo-small"],img[src*="yaarwin-yw-logo-small.webp?v=nta21"]{object-fit:contain!important}
-.hero-orb img[src*="yaarwin-yw-logo-small"]{width:260px!important;height:auto!important;aspect-ratio:320/131!important}
+.hero-orb img[src*="gamehub-yw-logo-small"],img[src*="gamehub-yw-logo-small.webp?v=nta21"]{object-fit:contain!important}
+.hero-orb img[src*="gamehub-yw-logo-small"]{width:260px!important;height:auto!important;aspect-ratio:320/131!important}
 .footer-bottom,.footer-bottom div,.footer-bottom p,.footer-bottom span{color:#fff!important;opacity:1!important;text-shadow:none!important}
 .footer-bottom{background:#020503!important;border-top:1px solid rgba(255,255,255,.24)!important;border-radius:14px!important;padding:18px 14px!important}
 .footer-bottom a{color:#d6ffdf!important;opacity:1!important}
@@ -322,7 +322,7 @@ img{display:block;max-width:100%}
 .hero{position:relative!important;background:#020402!important;isolation:isolate!important;}
 .hero-bg{background-image:linear-gradient(90deg,rgba(2,5,5,.97) 0%,rgba(2,8,5,.90) 42%,rgba(2,8,5,.58) 100%)!important;background-color:#020402!important;}
 .hero-bg::before{background:radial-gradient(circle at 78% 48%,rgba(28,149,54,.16),transparent 32%)!important;}
-.hero::before{content:""!important;position:absolute!important;left:3.5%!important;top:78px!important;width:min(720px,58vw)!important;height:min(300px,26vw)!important;background:url('/assets/img/yaarwin-yw-logo-small.webp?v=nta21') center center/contain no-repeat!important;opacity:.095!important;filter:drop-shadow(0 0 34px rgba(28,149,54,.38))!important;z-index:1!important;pointer-events:none!important;}
+.hero::before{content:""!important;position:absolute!important;left:3.5%!important;top:78px!important;width:min(720px,58vw)!important;height:min(300px,26vw)!important;background:url('/assets/img/gamehub-yw-logo-small.webp?v=nta21') center center/contain no-repeat!important;opacity:.095!important;filter:drop-shadow(0 0 34px rgba(28,149,54,.38))!important;z-index:1!important;pointer-events:none!important;}
 .hero .container{position:relative!important;z-index:2!important;}
 .teal,.hero h1 .teal,.hero-kicker,.trust-item b,.float-dice,.proof-icon,.payment-count,a:hover,.section-header b,.keyword-pills a:hover,.keyword-pills span,.guide-toc a:hover,.blog-content a:hover,.footer a:hover{color:#1c9536!important;}
 .button.primary,.btn-primary,.cta-primary,.yw-register-btn,.hero .cta-row .button.primary,.blog-content .button,.article-cta .button,.post-cta .button,.yw-mobile-sticky-cta a,a[href*="register"],a[href="/register/"],input[type="submit"],button[type="submit"],.rev32-site-header .button.primary,.rev32-site-header .auth-buttons a:last-child,.yw-final-actions .yw-register-btn{background:linear-gradient(180deg,#1c9536,#14752b)!important;background-color:#1c9536!important;border-color:rgba(28,149,54,.55)!important;color:#fff!important;box-shadow:0 12px 28px rgba(28,149,54,.26),inset 0 1px 0 rgba(255,255,255,.18)!important;}
@@ -335,7 +335,7 @@ img{display:block;max-width:100%}
 .hero-orb::before{box-shadow:inset 0 0 22px rgba(28,149,54,.12)!important;}
 .yw-final-brand span,.brand-title,.logo span,.logo strong{display:none!important;}
 .yw-final-brand img{width:142px!important;height:auto!important;max-height:46px!important;object-fit:contain!important;}
-img[src*="yaarwin-yw-logo-small.webp?v=nta21"]{object-fit:contain!important;}
+img[src*="gamehub-yw-logo-small.webp?v=nta21"]{object-fit:contain!important;}
 @media(max-width:760px){.hero::before{left:4%!important;top:70px!important;width:92vw!important;height:180px!important;opacity:.075!important;}.hero-bg{background-image:linear-gradient(180deg,rgba(2,5,5,.92),rgba(2,5,5,.97))!important;}.yw-final-brand img{width:118px!important;max-height:40px!important;}}
 
 

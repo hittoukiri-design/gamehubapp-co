@@ -5,7 +5,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('X-Robots-Tag: noindex, nofollow', true);
 
-$adminKey = 'yaarwinappco';
+$adminKey = 'gamehubappco';
 $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Makassar')))->format('Y-m-d');
 
 $privateDir = realpath(__DIR__ . '/../../private_bot');

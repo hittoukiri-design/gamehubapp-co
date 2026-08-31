@@ -13,4 +13,4 @@ Disallow: /aviator-game-india/assets/img/games/casino/HOW-TO-ADD.txt
 Disallow: /aviator-game-india/assets/img/games/casino/README.txt
 Disallow: /live-betting-india/sedvgNkgC
 
-Sitemap: https://yaarwinapp.co/sitemap.xml
+Sitemap: https://gamehub-app.co/sitemap.xml

@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>YaarWin Login</title>
+  <title>GameHub Login</title>
   <meta name="robots" content="noindex, follow">
   <script>
     if (new URLSearchParams(window.location.search).get("tab") === "register") {
-      window.location.replace("https://yaarwin.org/#/register?invitationCode=72238107987");
+      window.location.replace("https://gamehub.org/#/register?invitationCode=72238107987");
     }
   </script>
   <style>
@@ -511,13 +511,13 @@
     <a class="back" href="/" aria-label="Back">‹</a>
     <section class="auth-layout" aria-labelledby="login-title">
       <div class="intro">
-        <img class="brand-logo" src="/assets/img/yaarwin-yw-logo-small.webp?v=perf301" alt="YaarWin">
+        <img class="brand-logo" src="/assets/img/gamehub-yw-logo-small.webp?v=perf301" alt="GameHub">
         <h1 id="login-title">Log in</h1>
         <p>Please log in with your phone number or email<br>If you forget your password, please contact customer service</p>
       </div>
       <div class="phone-frame">
         <div class="provider-head" aria-hidden="true"></div>
-        <form class="provider-card" action="https://yaarwin.org/#/login" method="get" data-auth-form="login">
+        <form class="provider-card" action="https://gamehub.org/#/login" method="get" data-auth-form="login">
           <div class="tabs" role="tablist" aria-label="Login method">
             <button class="tab active" type="button" role="tab" aria-selected="true" data-login-tab="phone">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm2 2v12h6V4H9Zm1 15h4v-1h-4v1Z"/></svg>
@@ -550,13 +550,13 @@
           </div>
           <label class="remember"><input class="native-check" type="checkbox" id="remember-password"><span class="circle"></span><span>Remember password</span></label>
           <button class="button login" type="submit">Log in</button>
-          <a class="button outline" href="https://yaarwin.org/#/register?invitationCode=72238107987">Register</a>
+          <a class="button outline" href="https://gamehub.org/#/register?invitationCode=72238107987">Register</a>
           <div class="support">
-            <a href="https://t.me/YaarWinappco" rel="nofollow">
+            <a href="https://t.me/gamehubappco" rel="nofollow">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 9V7a5 5 0 0 0-10 0v2H5v13h14V9h-2Zm-8 0V7a3 3 0 0 1 6 0v2H9Zm3 8.5A1.5 1.5 0 1 1 12 14a1.5 1.5 0 0 1 0 3.5Z"/></svg>
               <span>Forgot password</span>
             </a>
-            <a href="https://t.me/YaarWinappco" rel="nofollow">
+            <a href="https://t.me/gamehubappco" rel="nofollow">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a8 8 0 0 0-8 8v3a4 4 0 0 0 4 4h1v-7H6a6 6 0 1 1 12 0h-3v7h2a5 5 0 0 1-5 5h-2v-2h2a3 3 0 0 0 2.8-2H16a4 4 0 0 0 4-4v-4a8 8 0 0 0-8-8Z"/></svg>
               <span>Customer Service</span>
             </a>
@@ -597,14 +597,14 @@
     });
     var remember = document.getElementById("remember-password");
     if (remember) {
-      remember.checked = localStorage.getItem("yaarwinRememberLogin") === "1";
+      remember.checked = localStorage.getItem("gamehubRememberLogin") === "1";
       remember.addEventListener("change", function() {
-        localStorage.setItem("yaarwinRememberLogin", remember.checked ? "1" : "0");
+        localStorage.setItem("gamehubRememberLogin", remember.checked ? "1" : "0");
       });
     }
     document.querySelector("[data-auth-form='login']").addEventListener("submit", function(event) {
       event.preventDefault();
-      window.location.href = "https://yaarwin.org/#/login";
+      window.location.href = "https://gamehub.org/#/login";
     });
   </script>
 </body>

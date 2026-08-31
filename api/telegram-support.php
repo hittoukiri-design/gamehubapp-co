@@ -1,6 +1,6 @@
 <?php
 // ===============================
-// YAARWIN TELEGRAM BOT
+// GameHub TELEGRAM BOT
 // UID FLOW + SAMPLE PHOTO + RECHARGE SUBMENU + HUMAN TEACHER HANDOFF
 // File: api/telegram-support.php
 // ===============================
@@ -11,7 +11,7 @@ $PRIVATE_CONFIG = $PRIVATE_BOT_DIR . "/config.php";
 
 if (!is_file($PRIVATE_CONFIG)) {
     http_response_code(500);
-    error_log("YaarWin bot config missing: " . $PRIVATE_CONFIG);
+    error_log("GameHub bot config missing: " . $PRIVATE_CONFIG);
     exit;
 }
 
@@ -22,7 +22,7 @@ $PANEL_AUTO_SYNC_SECRET = (string)($config["PANEL_AUTO_SYNC_SECRET"] ?? $WEBHOOK
 
 if ($BOT_TOKEN === "") {
     http_response_code(500);
-    error_log("YaarWin bot token is empty.");
+    error_log("GameHub bot token is empty.");
     exit;
 }
 
@@ -51,8 +51,8 @@ $PANEL_SYNC_DAYS = max(1, min(31, (int)($config["PANEL_SYNC_DAYS"] ?? 8)));
 $PANEL_AUTO_SYNC_MIN_INTERVAL = max(60, (int)($config["PANEL_AUTO_SYNC_MIN_INTERVAL"] ?? 300));
 
 // URL sample UID kamu
-$UID_SAMPLE_PHOTO = "https://yaarwinapp.co/assets/uid-sample-20260508.jpg";
-$WELCOME_ANIMATION_URL = "https://yaarwinapp.co/assets/yaarwin-intro-tg.mp4";
+$UID_SAMPLE_PHOTO = "https://gamehub-app.co/assets/uid-sample-20260508.jpg";
+$WELCOME_ANIMATION_URL = "https://gamehub-app.co/assets/gamehub-intro-tg.mp4";
 
 $API_URL = "https://api.telegram.org/bot" . $BOT_TOKEN . "/";
 
@@ -82,7 +82,7 @@ $MINUTE_CALLBACK_LIMIT = 12;
 $SAME_CALLBACK_LIMIT = 4;
 $DAILY_AGENT_INTEREST_LIMIT = 3;
 $UID_REVIEW_CHAT_LIMIT = 3;
-$HUMAN_AGENT_URL = "https://t.me/Official_YaarWinapp";
+$HUMAN_AGENT_URL = "https://t.me/Official_gamehubapp";
 $POTENTIAL_AGENT_AUTO_REPLY_ENABLED = (bool)($config["POTENTIAL_AGENT_AUTO_REPLY_ENABLED"] ?? true);
 $POTENTIAL_AGENT_AUTO_REPLY_TEMPLATE = trim((string)($config["POTENTIAL_AGENT_AUTO_REPLY_TEMPLATE"] ?? ""));
 
@@ -2522,7 +2522,7 @@ function showWelcome($chat_id, $username, $first_name) {
 
     $displayName = getDisplayName($username, $first_name);
 
-    $text = "👋 Hello, " . $displayName . " welcome to <b>YaarWin</b>! 🎉\n\n";
+    $text = "👋 Hello, " . $displayName . " welcome to <b>GameHub</b>! 🎉\n\n";
     $text .= "Please choose one option below so we can guide you faster.";
 
     sendMessage($chat_id, $text, [
@@ -2565,7 +2565,7 @@ function showMemberUidPrompt($chat_id, $username, $first_name) {
 function showNonMemberTeacherPrompt($chat_id) {
     sendMessage(
         $chat_id,
-        "Are you interested in becoming a YaarWin agent and building a successful future with us?",
+        "Are you interested in becoming a GameHub agent and building a successful future with us?",
         [
             "inline_keyboard" => [
                 [
@@ -2597,7 +2597,7 @@ function handlePotentialAgentInterest($chat_id, $username, $first_name) {
 
         if ($template === "") {
             $template =
-                "Hello {name}, thank you for your interest in becoming a <b>YaarWin agent</b>.\n\n" .
+                "Hello {name}, thank you for your interest in becoming a <b>GameHub agent</b>.\n\n" .
                 "Our CS team is ready to guide you. To help us respond faster, please reply with:\n\n" .
                 "1. Your city or country\n" .
                 "2. Your Telegram username\n" .
@@ -2965,7 +2965,7 @@ function sendWithdrawalStatusResult($chat_id, $uid, $orderNumber, $status, $user
     showHumanAgentMenu($chat_id, $text);
 
     notifyAdmin(
-        "📩 YaarWin Withdrawal Check\n\n" .
+        "📩 GameHub Withdrawal Check\n\n" .
         "User: @" . ($username ?: "no_username") . "\n" .
         "Name: " . $first_name . "\n" .
         "UID: " . $uid . "\n" .
@@ -3211,7 +3211,7 @@ if (isset($update["message"])) {
         );
 
         notifyAdmin(
-            "📩 New YaarWin Message\n\n" .
+            "📩 New GameHub Message\n\n" .
             "User: @" . ($username ?: "no_username") . "\n" .
             "Name: " . $first_name . "\n" .
             "UID: " . $uid . "\n" .
@@ -3371,7 +3371,7 @@ if (isset($update["callback_query"])) {
         showWithdrawInstructions($chat_id);
 
         notifyAdmin(
-            "📩 New YaarWin Request\n\n" .
+            "📩 New GameHub Request\n\n" .
             "User: @" . ($username ?: "no_username") . "\n" .
             "Name: " . $first_name . "\n" .
             "UID: " . $uid . "\n" .
@@ -3420,7 +3420,7 @@ if (isset($update["callback_query"])) {
         );
 
         notifyAdmin(
-            "📩 New YaarWin Request\n\n" .
+            "📩 New GameHub Request\n\n" .
             "User: @" . ($username ?: "no_username") . "\n" .
             "Name: " . $first_name . "\n" .
             "UID: " . $uid . "\n" .
@@ -3443,7 +3443,7 @@ if (isset($update["callback_query"])) {
         showRechargeHumanTeacherPrompt($chat_id);
 
         notifyAdmin(
-            "📩 New YaarWin Request\n\n" .
+            "📩 New GameHub Request\n\n" .
             "User: @" . ($username ?: "no_username") . "\n" .
             "Name: " . $first_name . "\n" .
             "UID: " . $uid . "\n" .
@@ -3466,7 +3466,7 @@ if (isset($update["callback_query"])) {
         showRechargeHumanTeacherPrompt($chat_id);
 
         notifyAdmin(
-            "📩 New YaarWin Request\n\n" .
+            "📩 New GameHub Request\n\n" .
             "User: @" . ($username ?: "no_username") . "\n" .
             "Name: " . $first_name . "\n" .
             "UID: " . $uid . "\n" .

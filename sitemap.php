@@ -1,5 +1,5 @@
 <?php
-$baseUrl = 'https://yaarwinapp.co';
+$baseUrl = 'https://gamehub-app.co';
 $rootDir = __DIR__;
 function xml_escape($value) { return htmlspecialchars($value, ENT_QUOTES | ENT_XML1, 'UTF-8'); }
 $pages = array();
@@ -38,7 +38,7 @@ echo "</urlset>\n";
 :root{--primary:#1c9536!important;--primary2:#14752b!important;--primary-2:#14752b!important;--accent:#1c9536!important;--green:#1c9536!important;--rev29-teal:#1c9536!important;--rev29-teal2:#14752b!important;--rev29-gold:#1c9536!important;}
 a.btn,.btn,.button,.button.primary,.btn-primary,.cta-primary,.yw-register-btn,.yw-login-btn,.hero .cta-row .button.primary,
 .blog-content .button,.blog-content a.button,.article-cta .button,.post-cta .button,.register-now-box a,.sticky-register a,
-.yw-mobile-sticky-cta a,a[href*="register"],a[href="https://yaarwin.org/#/register?invitationCode=72238107987"],a[href*="/login"],input[type="submit"],button[type="submit"],
+.yw-mobile-sticky-cta a,a[href*="register"],a[href="https://gamehub.org/#/register?invitationCode=72238107987"],a[href*="/login"],input[type="submit"],button[type="submit"],
 .rev32-site-header .button.primary,.rev32-site-header .auth-buttons a:last-child,.yw-final-actions .yw-register-btn,.cta .btn,.cta a,.hero a.btn,
 .header .btn,.nav .btn,.auth-buttons a:last-child,.blog-card .btn,.article-card .btn{
   background:#1c9536!important;background-color:#1c9536!important;background-image:linear-gradient(180deg,#1c9536,#14752b)!important;
