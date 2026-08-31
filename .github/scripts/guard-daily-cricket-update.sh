@@ -28,7 +28,7 @@ $changed_files
 EOF
 fi
 
-if ! grep -q '<title>YaarWin Game Login India' index.html; then
+if ! grep -q '<title>GameHub Game Login India' index.html; then
   echo "::error file=index.html::Root homepage title changed or is missing."
   blocked=1
 fi
@@ -38,7 +38,7 @@ if grep -q 'Cricket Betting Site India' index.html; then
   blocked=1
 fi
 
-if ! grep -q 'id="yw-page-visit-counter-js"' index.html || ! grep -q 'yaarwinappco' index.html; then
+if ! grep -q 'id="yw-page-visit-counter-js"' index.html || ! grep -q 'gamehubappco' index.html; then
   echo "::error file=index.html::Admin visit counter hook is missing."
   blocked=1
 fi
