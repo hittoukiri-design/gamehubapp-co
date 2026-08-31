@@ -1,7 +1,0 @@
-Casino/card/table thumbnails
-
-Cara tambah dummy game baru:
-1. Upload thumbnail .webp ke folder ini.
-2. Buka /games/index.html.
-3. Duplicate salah satu <article class="yw-game-card">.
-4. Ganti nama game, src gambar, alt, kategori, dan RTP.

@@ -59,8 +59,8 @@ $API_URL = "https://api.telegram.org/bot" . $BOT_TOKEN . "/";
 // File data bot sekarang berada di private_bot, di luar public_html.
 $STATE_FILE = $PRIVATE_BOT_DIR . "/user_state.json";
 $USERS_FILE = $PRIVATE_BOT_DIR . "/users.json";
-$WITHDRAWAL_STATUS_FILE = $PRIVATE_BOT_DIR . "/withdrawal_status.json";
-$WITHDRAWAL_PANEL_FILE = $PRIVATE_BOT_DIR . "/withdraw_orders.json";
+$REDEMPTION_STATUS_FILE = $PRIVATE_BOT_DIR . "/redemption_status.json";
+$REDEMPTION_PANEL_FILE = $PRIVATE_BOT_DIR . "/redeem_orders.json";
 $RECHARGE_PANEL_FILE = $PRIVATE_BOT_DIR . "/recharge_orders.json";
 $PANEL_TOKEN_FILE = $PRIVATE_BOT_DIR . "/panel_token.txt";
 $REGISTERED_UIDS_FILE = $PRIVATE_BOT_DIR . "/registered_uids.json";
@@ -75,7 +75,7 @@ $LOCKOUT_SECONDS = 300;
 $MAX_FAILED_ATTEMPTS = 3;
 $PROGRESSIVE_COOLDOWN_SECONDS = [300, 900, 3600, 86400];
 $HARD_MUTE_AFTER_COOLDOWNS = 5;
-$DAILY_WITHDRAW_CHECK_LIMIT = 5;
+$DAILY_REDEEM_CHECK_LIMIT = 5;
 $DAILY_UID_FAILURE_LIMIT = 6;
 $HOURLY_MESSAGE_LIMIT = 10;
 $MINUTE_CALLBACK_LIMIT = 12;
@@ -243,33 +243,33 @@ function appendPotentialAgentReply($chat_id, $username, $first_name, $messageTex
     return $record;
 }
 
-function loadWithdrawalStatuses() {
-    global $WITHDRAWAL_STATUS_FILE;
+function loadRedemptionStatuses() {
+    global $REDEMPTION_STATUS_FILE;
 
-    if (!file_exists($WITHDRAWAL_STATUS_FILE)) {
-        writeBotDataFile($WITHDRAWAL_STATUS_FILE, []);
+    if (!file_exists($REDEMPTION_STATUS_FILE)) {
+        writeBotDataFile($REDEMPTION_STATUS_FILE, []);
     }
 
-    $statuses = readBotDataFile($WITHDRAWAL_STATUS_FILE);
+    $statuses = readBotDataFile($REDEMPTION_STATUS_FILE);
     return is_array($statuses) ? $statuses : [];
 }
 
-function loadPanelWithdrawalOrders() {
-    global $WITHDRAWAL_PANEL_FILE;
+function loadPanelRedemptionOrders() {
+    global $REDEMPTION_PANEL_FILE;
 
-    if (!file_exists($WITHDRAWAL_PANEL_FILE)) {
-        writeBotDataFile($WITHDRAWAL_PANEL_FILE, []);
+    if (!file_exists($REDEMPTION_PANEL_FILE)) {
+        writeBotDataFile($REDEMPTION_PANEL_FILE, []);
     }
 
-    $orders = readBotDataFile($WITHDRAWAL_PANEL_FILE);
+    $orders = readBotDataFile($REDEMPTION_PANEL_FILE);
     return is_array($orders) ? $orders : [];
 }
 
-function savePanelWithdrawalOrders($orders) {
-    global $WITHDRAWAL_PANEL_FILE;
+function savePanelRedemptionOrders($orders) {
+    global $REDEMPTION_PANEL_FILE;
 
     ksort($orders);
-    writeBotDataFile($WITHDRAWAL_PANEL_FILE, $orders);
+    writeBotDataFile($REDEMPTION_PANEL_FILE, $orders);
 }
 
 function loadPanelRechargeOrders() {
@@ -379,8 +379,8 @@ function extractOrderNumber($text) {
     return "";
 }
 
-function getWithdrawalStatus($orderNumber) {
-    $record = getWithdrawalRecord($orderNumber);
+function getRedemptionStatus($orderNumber) {
+    $record = getRedemptionRecord($orderNumber);
 
     if ($record) {
         return $record["status"] ?? "processing";
@@ -389,9 +389,9 @@ function getWithdrawalStatus($orderNumber) {
     return "";
 }
 
-function getWithdrawalRecord($orderNumber) {
-    $statuses = loadWithdrawalStatuses();
-    $panelOrders = loadPanelWithdrawalOrders();
+function getRedemptionRecord($orderNumber) {
+    $statuses = loadRedemptionStatuses();
+    $panelOrders = loadPanelRedemptionOrders();
     $orderKey = normalizeOrderNumber($orderNumber);
 
     if (isset($panelOrders[$orderKey]) && is_array($panelOrders[$orderKey])) {
@@ -445,7 +445,7 @@ function formatWaitTime($seconds) {
     return implode(" ", $parts);
 }
 
-function getTesterWithdrawalStatus($text) {
+function getTesterRedemptionStatus($text) {
     $normalized = strtolower(trim((string)$text));
     $normalized = preg_replace('/\s+/', ' ', $normalized);
 
@@ -743,7 +743,7 @@ function makePanelRandom() {
 }
 
 function signPanelPayload($payload) {
-    $skipKeys = ["signature" => true, "track" => true, "xosoBettingData" => true];
+    $skipKeys = ["signature" => true, "track" => true, "xosoGamingData" => true];
     $clean = [];
 
     ksort($payload);
@@ -977,13 +977,13 @@ function countUidRecapForRange($range) {
     return $count;
 }
 
-function countWithdrawalRecapForRange($range) {
+function countRedemptionRecapForRange($range) {
     $timezone = new DateTimeZone("Asia/Kolkata");
     $startTs = strtotime($range["start"] . " Asia/Kolkata");
     $endTs = strtotime($range["end"] . " Asia/Kolkata");
     $count = 0;
 
-    foreach (loadPanelWithdrawalOrders() as $record) {
+    foreach (loadPanelRedemptionOrders() as $record) {
         if (!is_array($record)) {
             continue;
         }
@@ -1031,8 +1031,8 @@ function countRechargeRecapForRange($range) {
     return $count;
 }
 
-function countCurrentMonthWithdrawalCache() {
-    return countWithdrawalRecapForRange(getPanelDateRange(0));
+function countCurrentMonthRedemptionCache() {
+    return countRedemptionRecapForRange(getPanelDateRange(0));
 }
 
 function countCurrentMonthUidCache() {
@@ -1043,13 +1043,13 @@ function countCurrentMonthRechargeCache() {
     return countRechargeRecapForRange(getPanelDateRange(0));
 }
 
-function countPanelWithdrawalsForRange($range) {
+function countPanelRedemptionsForRange($range) {
     $count = 0;
     $totalPages = 1;
 
     for ($pageNo = 1; $pageNo <= min($totalPages, 50); $pageNo++) {
         $error = "";
-        $result = fetchPanelWithdrawPage($pageNo, $range, $error);
+        $result = fetchPanelRedeemPage($pageNo, $range, $error);
         if (!$result) {
             return [
                 "ok" => false,
@@ -1067,7 +1067,7 @@ function countPanelWithdrawalsForRange($range) {
                 continue;
             }
 
-            $record = normalizePanelWithdrawalRow($row);
+            $record = normalizePanelRedemptionRow($row);
             if (!$record || ($record["status"] ?? "") !== "completed") {
                 continue;
             }
@@ -1175,7 +1175,7 @@ function countPanelRechargesForRange($range) {
     ];
 }
 
-function mapPanelWithdrawalStatus($status) {
+function mapPanelRedemptionStatus($status) {
     $status = strtolower(trim((string)$status));
 
     if (in_array($status, ["passed", "success", "successful", "completed", "complete", "done", "paid", "transferred"], true)) {
@@ -1197,7 +1197,7 @@ function cleanPanelText($text) {
     return trim($text);
 }
 
-function normalizePanelWithdrawalRow($row) {
+function normalizePanelRedemptionRow($row) {
     $orderNumber = normalizeOrderNumber($row["orderNumber"] ?? "");
 
     if ($orderNumber === "") {
@@ -1209,10 +1209,10 @@ function normalizePanelWithdrawalRow($row) {
     return [
         "order_number" => $orderNumber,
         "uid" => trim((string)($row["memberID"] ?? "")),
-        "status" => mapPanelWithdrawalStatus($rawStatus),
+        "status" => mapPanelRedemptionStatus($rawStatus),
         "raw_status" => $rawStatus,
-        "withdraw_type" => trim((string)($row["withdrawType"] ?? "")),
-        "amount" => trim((string)($row["withdrawAmount"] ?? "")),
+        "redeem_type" => trim((string)($row["redeemType"] ?? "")),
+        "amount" => trim((string)($row["redeemAmount"] ?? "")),
         "actual_amount" => trim((string)($row["actualAmountReceive"] ?? "")),
         "application_time" => cleanPanelText($row["applicationTime"] ?? ""),
         "add_time" => trim((string)($row["addTime"] ?? "")),
@@ -1241,7 +1241,7 @@ function normalizePanelUidMemberRow($row) {
         "register_device" => trim((string)($row["registerDevice"] ?? "")),
         "user_activity_date" => trim((string)($row["userActivityDate"] ?? "")),
         "recharge" => trim((string)($row["recharge"] ?? "")),
-        "withdraw" => trim((string)($row["withdraw"] ?? "")),
+        "redeem" => trim((string)($row["redeem"] ?? "")),
         "synced_at" => date("c")
     ];
 }
@@ -1281,7 +1281,7 @@ function normalizePanelRechargeRow($row) {
     ];
 }
 
-function fetchPanelWithdrawPage($pageNo, $dateRange, &$error = "") {
+function fetchPanelRedeemPage($pageNo, $dateRange, &$error = "") {
     $token = getPanelBearerToken();
 
     if ($token === "") {
@@ -1460,11 +1460,11 @@ function fetchPanelRechargePage($pageNo, $dateRange, &$error = "") {
     return $decoded;
 }
 
-function syncPanelWithdrawalOrders() {
+function syncPanelRedemptionOrders() {
     global $PANEL_SYNC_DAYS;
 
     $dateRange = getPanelDateRange($PANEL_SYNC_DAYS);
-    $cache = loadPanelWithdrawalOrders();
+    $cache = loadPanelRedemptionOrders();
     $newCount = 0;
     $updatedCount = 0;
     $seenCount = 0;
@@ -1472,7 +1472,7 @@ function syncPanelWithdrawalOrders() {
 
     for ($pageNo = 1; $pageNo <= min($totalPages, 10); $pageNo++) {
         $error = "";
-        $result = fetchPanelWithdrawPage($pageNo, $dateRange, $error);
+        $result = fetchPanelRedeemPage($pageNo, $dateRange, $error);
 
         if (!$result) {
             return [
@@ -1480,7 +1480,7 @@ function syncPanelWithdrawalOrders() {
                 "error" => $error,
                 "new" => $newCount,
                 "updated" => $updatedCount,
-                "total_cached" => countCurrentMonthWithdrawalCache(),
+                "total_cached" => countCurrentMonthRedemptionCache(),
                 "range" => $dateRange
             ];
         }
@@ -1494,7 +1494,7 @@ function syncPanelWithdrawalOrders() {
                 continue;
             }
 
-            $record = normalizePanelWithdrawalRow($row);
+            $record = normalizePanelRedemptionRow($row);
 
             if (!$record) {
                 continue;
@@ -1517,7 +1517,7 @@ function syncPanelWithdrawalOrders() {
         }
     }
 
-    savePanelWithdrawalOrders($cache);
+    savePanelRedemptionOrders($cache);
 
     return [
         "ok" => true,
@@ -1525,7 +1525,7 @@ function syncPanelWithdrawalOrders() {
         "updated" => $updatedCount,
         "seen" => $seenCount,
         "pages" => min($totalPages, 10),
-        "total_cached" => countCurrentMonthWithdrawalCache(),
+        "total_cached" => countCurrentMonthRedemptionCache(),
         "range" => $dateRange
     ];
 }
@@ -1686,7 +1686,7 @@ function syncPanelRechargeOrders() {
     ];
 }
 
-function handleSyncWithdrawCommand($chat_id) {
+function handleSyncRedeemCommand($chat_id) {
     global $BOT_API_WEBHOOK_FALLBACK_MODE;
 
     if (!isAdminChat($chat_id)) {
@@ -1695,10 +1695,10 @@ function handleSyncWithdrawCommand($chat_id) {
     }
 
     if (!$BOT_API_WEBHOOK_FALLBACK_MODE) {
-        sendMessage($chat_id, "⏳ Syncing withdrawal data from the panel. Please wait...");
+        sendMessage($chat_id, "⏳ Syncing redemption data from the panel. Please wait...");
     }
 
-    $result = syncPanelWithdrawalOrders();
+    $result = syncPanelRedemptionOrders();
 
     if (empty($result["ok"])) {
         sendMessage(
@@ -1809,7 +1809,7 @@ function handleLastMonthRecapCommand($chat_id) {
     }
 
     $uidResult = countPanelUidsForRange($range);
-    $wdResult = countPanelWithdrawalsForRange($range);
+    $wdResult = countPanelRedemptionsForRange($range);
     $rcResult = countPanelRechargesForRange($range);
 
     if (empty($uidResult["ok"]) || empty($wdResult["ok"]) || empty($rcResult["ok"])) {
@@ -1844,7 +1844,7 @@ function handleLastMonthRecapCommand($chat_id) {
 
 function buildPanelRecapForRange($range) {
     $uidResult = countPanelUidsForRange($range);
-    $wdResult = countPanelWithdrawalsForRange($range);
+    $wdResult = countPanelRedemptionsForRange($range);
     $rcResult = countPanelRechargesForRange($range);
 
     if (empty($uidResult["ok"]) || empty($wdResult["ok"]) || empty($rcResult["ok"])) {
@@ -2060,7 +2060,7 @@ function handlePanelAutoSyncRequest() {
     $startedAt = date("c");
     $started = microtime(true);
     $results = [
-        "wd" => syncPanelWithdrawalOrders(),
+        "wd" => syncPanelRedemptionOrders(),
         "uid" => syncPanelRegisteredUids(),
         "rc" => syncPanelRechargeOrders()
     ];
@@ -2196,7 +2196,7 @@ function getDefaultAbuseUserRecord() {
         "hard_muted" => false,
         "daily" => [
             "date" => date("Y-m-d"),
-            "withdraw_checks" => 0,
+            "redeem_checks" => 0,
             "uid_failures" => 0,
             "agent_interest_clicks" => 0
         ],
@@ -2228,7 +2228,7 @@ function getAbuseUserRecord($chat_id, &$data) {
     if (($record["daily"]["date"] ?? "") !== date("Y-m-d")) {
         $record["daily"] = [
             "date" => date("Y-m-d"),
-            "withdraw_checks" => 0,
+            "redeem_checks" => 0,
             "uid_failures" => 0,
             "agent_interest_clicks" => 0
         ];
@@ -2374,8 +2374,8 @@ function trackUidFailureLimit($chat_id, $username, $first_name, $uid = "") {
     return true;
 }
 
-function trackWithdrawCheckLimit($chat_id, $uid, $username, $first_name) {
-    global $DAILY_WITHDRAW_CHECK_LIMIT;
+function trackRedeemCheckLimit($chat_id, $uid, $username, $first_name) {
+    global $DAILY_REDEEM_CHECK_LIMIT;
 
     if (isAdminChat($chat_id)) {
         return true;
@@ -2383,12 +2383,12 @@ function trackWithdrawCheckLimit($chat_id, $uid, $username, $first_name) {
 
     $data = loadAbuseData();
     $record = getAbuseUserRecord($chat_id, $data);
-    $record["daily"]["withdraw_checks"] = (int)($record["daily"]["withdraw_checks"] ?? 0) + 1;
+    $record["daily"]["redeem_checks"] = (int)($record["daily"]["redeem_checks"] ?? 0) + 1;
     $data["users"][(string)$chat_id] = $record;
     saveAbuseData($data);
 
-    if ($record["daily"]["withdraw_checks"] > $DAILY_WITHDRAW_CHECK_LIMIT) {
-        activateSafetyCooldown($chat_id, "Daily withdrawal check limit exceeded", $username, $first_name, $uid);
+    if ($record["daily"]["redeem_checks"] > $DAILY_REDEEM_CHECK_LIMIT) {
+        activateSafetyCooldown($chat_id, "Daily redemption check limit exceeded", $username, $first_name, $uid);
         return false;
     }
 
@@ -2679,8 +2679,8 @@ function showProblemMenu($chat_id, $uid, $withQuit = false) {
     $buttons = [
         [
             [
-                "text" => "Withdraw",
-                "callback_data" => "problem_withdraw"
+                "text" => "Redeem",
+                "callback_data" => "problem_redeem"
             ],
             [
                 "text" => "Recharge",
@@ -2899,49 +2899,49 @@ function handleFailedOrderAttempt($chat_id, $uid, $username, $first_name) {
         return;
     }
 
-    setUserState($chat_id, "waiting_withdraw_evidence", [
+    setUserState($chat_id, "waiting_redeem_evidence", [
         "uid" => $uid,
-        "problem" => "Withdraw",
+        "problem" => "Redeem",
         "username" => $username,
         "first_name" => $first_name,
-        "withdraw_screenshot_received" => true,
-        "withdraw_order_number" => "",
+        "redeem_screenshot_received" => true,
+        "redeem_order_number" => "",
         "order_failed_attempts" => $attempts
     ]);
 
     sendMessage(
         $chat_id,
-        "❌ The order number you entered is incorrect. Please copy the order number directly from your account's withdrawal history."
+        "❌ The order number you entered is incorrect. Please copy the order number directly from your account's redemption history."
     );
 }
 
-function showWithdrawInstructions($chat_id) {
-    $text = "✅ You selected <b>Withdraw</b>.\n\n";
-    $text .= "Please send your <b>withdrawal history screenshot</b> and enter your <b>Order number</b>.\n\n";
+function showRedeemInstructions($chat_id) {
+    $text = "✅ You selected <b>Redeem</b>.\n\n";
+    $text .= "Please send your <b>redemption history screenshot</b> and enter your <b>Order number</b>.\n\n";
     $text .= "You can send the screenshot with the order number in the caption, or send the screenshot first and then type the order number.\n\n";
     $text .= "Example:\n<b>WD2026042213325277855142a</b>";
 
     sendMessage($chat_id, $text);
 }
 
-function sendWithdrawalStatusResult($chat_id, $uid, $orderNumber, $status, $username, $first_name) {
+function sendRedemptionStatusResult($chat_id, $uid, $orderNumber, $status, $username, $first_name) {
     global $BOT_API_WEBHOOK_FALLBACK_MODE;
 
     $orderNumber = normalizeOrderNumber($orderNumber);
-    $record = getWithdrawalRecord($orderNumber);
+    $record = getRedemptionRecord($orderNumber);
 
     if (!$BOT_API_WEBHOOK_FALLBACK_MODE) {
-        sendMessage($chat_id, "⏳ Please wait while we check your withdrawal status.");
+        sendMessage($chat_id, "⏳ Please wait while we check your redemption status.");
     }
 
     if ($status === "completed") {
-        $text = "✅ <b>Your withdrawal has been completed.</b>\n\n";
+        $text = "✅ <b>Your redemption has been completed.</b>\n\n";
         $text .= "Congratulations on your win.\n\n";
     } elseif ($status === "failed") {
-        $text = "❌ <b>Your withdrawal was not successful.</b>\n\n";
-        $text .= "Please contact our human teacher with your withdrawal screenshot.\n\n";
+        $text = "❌ <b>Your redemption was not successful.</b>\n\n";
+        $text .= "Please contact our human teacher with your redemption screenshot.\n\n";
     } else {
-        $text = "⏳ <b>Your withdrawal is currently being processed.</b>\n\n";
+        $text = "⏳ <b>Your redemption is currently being processed.</b>\n\n";
         $text .= "Please wait and check your bank account regularly.\n\n";
     }
 
@@ -2953,8 +2953,8 @@ function sendWithdrawalStatusResult($chat_id, $uid, $orderNumber, $status, $user
             $text .= "\n<b>Amount:</b> " . htmlspecialchars($record["amount"]);
         }
 
-        if (!empty($record["withdraw_type"])) {
-            $text .= "\n<b>Method:</b> " . htmlspecialchars($record["withdraw_type"]);
+        if (!empty($record["redeem_type"])) {
+            $text .= "\n<b>Method:</b> " . htmlspecialchars($record["redeem_type"]);
         }
 
         if (!empty($record["raw_status"])) {
@@ -2965,7 +2965,7 @@ function sendWithdrawalStatusResult($chat_id, $uid, $orderNumber, $status, $user
     showHumanAgentMenu($chat_id, $text);
 
     notifyAdmin(
-        "📩 GameHub Withdrawal Check\n\n" .
+        "📩 GameHub Redemption Check\n\n" .
         "User: @" . ($username ?: "no_username") . "\n" .
         "Name: " . $first_name . "\n" .
         "UID: " . $uid . "\n" .
@@ -2974,22 +2974,22 @@ function sendWithdrawalStatusResult($chat_id, $uid, $orderNumber, $status, $user
     );
 }
 
-function completeWithdrawalCheck($chat_id, $uid, $orderNumber, $username, $first_name) {
+function completeRedemptionCheck($chat_id, $uid, $orderNumber, $username, $first_name) {
     $orderNumber = normalizeOrderNumber($orderNumber);
 
-    if (!trackWithdrawCheckLimit($chat_id, $uid, $username, $first_name)) {
+    if (!trackRedeemCheckLimit($chat_id, $uid, $username, $first_name)) {
         showLockoutMessage($chat_id, $username, $first_name);
         return;
     }
 
-    $status = getWithdrawalStatus($orderNumber);
+    $status = getRedemptionStatus($orderNumber);
 
     if ($status === "") {
         handleFailedOrderAttempt($chat_id, $uid, $username, $first_name);
         return;
     }
 
-    sendWithdrawalStatusResult($chat_id, $uid, $orderNumber, $status, $username, $first_name);
+    sendRedemptionStatusResult($chat_id, $uid, $orderNumber, $status, $username, $first_name);
 }
 
 function notifyAdmin($message) {
@@ -3052,7 +3052,7 @@ if (isset($update["message"])) {
 
     // Admin maintenance commands must bypass user flow state and spam gates.
     if (preg_match('/^\/syncwd(?:@\w+)?$/i', $text)) {
-        handleSyncWithdrawCommand($chat_id);
+        handleSyncRedeemCommand($chat_id);
         exit;
     }
 
@@ -3118,39 +3118,39 @@ if (isset($update["message"])) {
 
     $userState = getUserState($chat_id);
 
-    if ($userState["state"] === "waiting_withdraw_evidence") {
+    if ($userState["state"] === "waiting_redeem_evidence") {
         $uid = $userState["uid"] ?? "Not provided";
         $combinedText = trim($text . "\n" . $caption);
-        $testerStatus = getTesterWithdrawalStatus($combinedText);
+        $testerStatus = getTesterRedemptionStatus($combinedText);
         $orderNumber = extractOrderNumber($combinedText);
-        $screenshotReceived = !empty($userState["withdraw_screenshot_received"]) || $hasPhoto || $hasDocument;
-        $storedOrderNumber = $userState["withdraw_order_number"] ?? "";
+        $screenshotReceived = !empty($userState["redeem_screenshot_received"]) || $hasPhoto || $hasDocument;
+        $storedOrderNumber = $userState["redeem_order_number"] ?? "";
 
         if ($orderNumber === "" && $storedOrderNumber !== "") {
             $orderNumber = $storedOrderNumber;
         }
 
         if (($hasPhoto || $hasDocument) || $orderNumber !== "") {
-            setUserState($chat_id, "waiting_withdraw_evidence", [
+            setUserState($chat_id, "waiting_redeem_evidence", [
                 "uid" => $uid,
-                "problem" => "Withdraw",
+                "problem" => "Redeem",
                 "username" => $username,
                 "first_name" => $first_name,
-                "withdraw_screenshot_received" => $screenshotReceived,
-                "withdraw_order_number" => $orderNumber
+                "redeem_screenshot_received" => $screenshotReceived,
+                "redeem_order_number" => $orderNumber
             ]);
         }
 
         if (!$screenshotReceived) {
             sendMessage(
                 $chat_id,
-                "Please send your <b>withdrawal history screenshot</b> first, then input your Order number."
+                "Please send your <b>redemption history screenshot</b> first, then input your Order number."
             );
             exit;
         }
 
         if ($testerStatus !== "") {
-            sendWithdrawalStatusResult($chat_id, $uid, "TESTER", $testerStatus, $username, $first_name);
+            sendRedemptionStatusResult($chat_id, $uid, "TESTER", $testerStatus, $username, $first_name);
             exit;
         }
 
@@ -3162,7 +3162,7 @@ if (isset($update["message"])) {
             exit;
         }
 
-        completeWithdrawalCheck($chat_id, $uid, $orderNumber, $username, $first_name);
+        completeRedemptionCheck($chat_id, $uid, $orderNumber, $username, $first_name);
         exit;
     }
 
@@ -3357,25 +3357,25 @@ if (isset($update["callback_query"])) {
         exit;
     }
 
-    // Main menu: Withdraw
-    if ($data === "problem_withdraw") {
-        setUserState($chat_id, "waiting_withdraw_evidence", [
+    // Main menu: Redeem
+    if ($data === "problem_redeem") {
+        setUserState($chat_id, "waiting_redeem_evidence", [
             "uid" => $uid,
-            "problem" => "Withdraw",
+            "problem" => "Redeem",
             "username" => $username,
             "first_name" => $first_name,
-            "withdraw_screenshot_received" => false,
-            "withdraw_order_number" => ""
+            "redeem_screenshot_received" => false,
+            "redeem_order_number" => ""
         ]);
 
-        showWithdrawInstructions($chat_id);
+        showRedeemInstructions($chat_id);
 
         notifyAdmin(
             "📩 New GameHub Request\n\n" .
             "User: @" . ($username ?: "no_username") . "\n" .
             "Name: " . $first_name . "\n" .
             "UID: " . $uid . "\n" .
-            "Problem: Withdraw"
+            "Problem: Redeem"
         );
 
         exit;

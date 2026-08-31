@@ -4,7 +4,7 @@
 Options -Indexes
 DirectoryIndex index.html index.php default.php
 
-<FilesMatch "^(users|user_state|registered_uids|withdrawal_status)\.json$">
+<FilesMatch "^(users|user_state|registered_uids|redemption_status)\.json$">
   Require all denied
 </FilesMatch>
 
@@ -42,7 +42,7 @@ DirectoryIndex index.html index.php default.php
   RewriteRule (^|/)\. - [F,L]
   RewriteRule ^gamehubappco=1/?$ /?gamehubappco=1 [R=302,L,NE]
   RewriteRule ^go/register/?$ https://gamehub.org/#/register?invitationCode=72238107987 [R=302,L,NE]
-  RewriteRule ^best-betting-india/?$ /best-online-betting-india/ [R=301,L]
-  RewriteRule ^best-betting-india/(.*)$ /$1 [R=301,L]
+  RewriteRule ^best-gaming-india/?$ /best-online-gaming-india/ [R=301,L]
+  RewriteRule ^best-gaming-india/(.*)$ /$1 [R=301,L]
   RewriteRule ^private_bot/ - [F,L]
 </IfModule>

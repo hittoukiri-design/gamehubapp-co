@@ -1,17 +1,17 @@
 User-agent: *
 Allow: /
 Disallow: /go/
-Disallow: /best-betting-india/
+Disallow: /best-gaming-india/
 Disallow: /assets/img/games/test.txt
 Disallow: /assets/img/games/slots/HOW-TO-ADD.txt
 Disallow: /assets/img/games/crash/HOW-TO-ADD.txt
-Disallow: /assets/img/games/casino/HOW-TO-ADD.txt
-Disallow: /assets/img/games/casino/README.txt
+Disallow: /assets/img/games/arcade/HOW-TO-ADD.txt
+Disallow: /assets/img/games/arcade/README.txt
 Disallow: /aviator-game-india/assets/img/games/test.txt
 Disallow: /aviator-game-india/assets/img/games/slots/HOW-TO-ADD.txt
 Disallow: /aviator-game-india/assets/img/games/crash/HOW-TO-ADD.txt
-Disallow: /aviator-game-india/assets/img/games/casino/HOW-TO-ADD.txt
-Disallow: /aviator-game-india/assets/img/games/casino/README.txt
-Disallow: /live-betting-india/sedvgNkgC
+Disallow: /aviator-game-india/assets/img/games/arcade/HOW-TO-ADD.txt
+Disallow: /aviator-game-india/assets/img/games/arcade/README.txt
+Disallow: /live-gaming-india/sedvgNkgC
 
 Sitemap: https://gamehub-app.co/sitemap.xml
